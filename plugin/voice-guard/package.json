@@ -1,0 +1,8 @@
+{
+  "name": "@onbehalf/voice-guard",
+  "version": "0.1.0",
+  "description": "OpenClaw plugin: an assistant speaks for its owner, never as its owner.",
+  "type": "module",
+  "license": "MIT",
+  "openclaw": { "extensions": ["./index.js"] }
+}

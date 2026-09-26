@@ -1,0 +1,8 @@
+{
+  "id": "voice-guard",
+  "name": "OnBehalf voice guard",
+  "description": "Messages to anyone but the owner are written by the assistant, never as the owner.",
+  "enabledByDefault": true,
+  "activation": { "onStartup": true },
+  "configSchema": { "type": "object", "additionalProperties": false }
+}
