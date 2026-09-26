@@ -86,10 +86,12 @@ export default definePluginEntry({
       if (!/^en/i.test(lang)) {
         try { nextLocal = [...Array(14)].map((_, i) => new Date(now.getTime() + (i + 1) * 864e5).toLocaleDateString(lang, { weekday: 'short', day: 'numeric', month: 'short', timeZone: tz })).join(', '); } catch { /* unknown locale */ }
       }
-      const owner = w.owner || 'your owner', me = w.assistant || 'the assistant';
+      const owner = w.owner || '(not set yet)', me = w.assistant || '(not set yet)';
       const room = isOwnerSession(ctx?.sessionKey) ? `your owner's private chat: talk to ${owner} plainly` : `a room with people other than ${owner}: write as ${me}, ${owner}'s assistant, ${owner} in the third person`;
+      const setUp = Boolean(w.owner);
       const lines = [
         `[OnBehalf facts, resolved by the system]`,
+        setUp ? null : `SETUP NOT DONE: this owner has not set you up yet. Whatever they wrote, reply with the welcome message from "First conversation" in AGENTS.md, in the language they wrote in. Do not ask how you can help.`,
         `Owner: ${owner}. You sign as: ${me}, ${owner}'s assistant. Owner's time zone: ${tz}.`,
         w.windows ? `Owner's usual windows: ${w.windows}.` : null,
         w.calendar?.ics ? `Owner's calendar: connected (read-only). Free slots: node /opt/onbehalf/bin/freebusy.mjs --from <YYYY-MM-DD> --days <n> --minutes <length>; it prints labels to copy. You never see what is on the calendar, only when the owner is free.` : `Owner's calendar: not connected; use the usual windows and say they are unconfirmed.`,
