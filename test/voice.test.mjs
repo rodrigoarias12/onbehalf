@@ -1,7 +1,7 @@
 // node test/voice.test.mjs — the lines from the screenshot that started this project, and the
 // lines an assistant must be free to write.
 import assert from 'node:assert/strict';
-import { ownerVoice, isOwnerSession, rewriteInstruction } from '../plugin/voice-guard/voice.js';
+import { ownerVoice, isOwnerSession, rewriteInstruction, wrongWeekday } from '../plugin/voice-guard/voice.js';
 
 const ownerLines = [
   "Hey Patrick! I'm free for lunch any day next week — Tue Sep 29, Wed Sep 30.",
@@ -29,4 +29,10 @@ assert.ok(isOwnerSession('agent:main:main'));
 assert.ok(!isOwnerSession('agent:main:plow:group:cht_abc'));
 assert.ok(!isOwnerSession(undefined));
 assert.match(rewriteInstruction(ownerVoice(ownerLines[0]), { owner: 'Sam', assistant: 'Spruce' }), /Sam is free Tuesday/);
+const today = new Date(Date.UTC(2026, 8, 26));
+assert.ok(wrongWeekday('How about Monday, Oct 6, 12-1pm PT?', today), 'Oct 6 2026 is a Tuesday');
+assert.equal(wrongWeekday('How about Tuesday, Oct 6, 12-1pm PT?', today), null);
+assert.equal(wrongWeekday('Tue Sep 29, Wed Sep 30 or Thu Oct 1', today), null);
+assert.ok(wrongWeekday('¿Le sirve el lunes 6 de octubre?', today));
+assert.equal(wrongWeekday('¿Le sirve el martes 6 de octubre?', today), null);
 console.log(`ok: ${ownerLines.length} owner-voice lines flagged, ${assistantLines.length} assistant lines pass`);

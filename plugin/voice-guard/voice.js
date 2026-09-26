@@ -7,12 +7,15 @@
 
 /** First-person lines about the owner's time, plans or presence. Each pattern names itself. */
 export const OWNER_VOICE = [
-  ['free/available', /\bI(?:'m|’m| am)\s+(?:free|available|open|around|flexible|good|in town|out of town|busy|booked|swamped|traveling|travelling)\b/i],
-  ['I can make it', /\bI\s+can\s+(?:do|make|meet|come|join|grab|swing by|hop on)\b/i],
+  // "I'm available here if you have questions" is the assistant offering help, not the owner's calendar.
+  ['free/available', /\bI(?:'m|’m| am)\s+(?:free|available|open|around|flexible|good|in town|out of town|busy|booked|swamped|traveling|travelling)\b(?!\s+(?:here|if\b|to help|to answer|for (?:any )?questions))/i],
+  // "I can do that for you" is the assistant taking a task; "I can do 3pm" is the owner's time.
+  ['I can make it', /\bI\s+can\s+(?:do|make|meet|come|join|grab|swing by|hop on)\b(?!\s+(?:that|this|it|so|those|these)\b)/i],
   ['works for me', /\b(?:works|work|suits)\s+(?:for\s+)?me\b/i],
   ['my calendar', /\bmy\s+(?:calendar|schedule|availability|diary|week|day|afternoon|morning|evening|lunch|weekend)\b/i],
   // "See you then!" opens a sentence as the owner; "Sam will see you there" is the assistant.
-  ['see you', /(?:^|[.!?]\s*|\bI(?:'ll|’ll| will)\s+)see\s+(?:you|ya)\s+(?:then|there|soon|tomorrow|on|at|next)\b/i],
+  ['see you', /(?:^|[.!?]\s*|\bI(?:'ll|’ll| will)\s+)see\s+(?:you|ya)\s+(?:then|there|soon|later|tomorrow|tonight|on|at|next|mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday)?|thu(?:rs(?:day)?)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\b/i],
+  ['looking forward', /(?:^|[.!?]\s*|\bI(?:'m|’m| am)\s+)(?:really\s+)?looking\s+forward\s+to\s+(?:seeing|meeting|catching up|chatting|it)\b/i],
   ['let\'s meet', /\blet(?:'|’)?s\s+(?:meet|grab|do|catch up|get (?:lunch|coffee|dinner|together)|find a time|hop on)\b/i],
   ['I\'ll be there', /\bI(?:'ll|’ll| will)\s+(?:be there|see you|meet you|come|swing by|join you)\b/i],
   ['I\'d love to', /\bI(?:'d|’d| would)\s+(?:love|like)\s+to\s+(?:meet|grab|catch|see|join|chat|connect|get)\b/i],
@@ -52,4 +55,38 @@ export function rewriteInstruction(hit, who) {
 export function isOwnerSession(sessionKey) {
   if (typeof sessionKey !== 'string' || !sessionKey) return false;
   return /^agent:[^:]+:main$/.test(sessionKey);
+}
+
+// ---- Dates: a weekday that does not match its date ------------------------------------------
+// "Monday, Oct 6" when Oct 6 is a Tuesday is worse than no date: the other person books the
+// wrong day. Checked against the nearest occurrence of that date from today (this year, or next
+// year if it already passed more than a month ago).
+const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+const MONTHS = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
+  ene: 0, abr: 3, ago: 7, dic: 11, set: 8 };
+const DAY_ES = { lun: 1, mar: 2, 'mié': 3, mie: 3, jue: 4, vie: 5, 'sáb': 6, sab: 6, dom: 0 };
+const EN = /\b(sun|mon|tue|wed|thu|fri|sat)[a-z]*\.?,?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})\b/gi;
+const ES = /\b(lun|mar|mi[ée]|jue|vie|s[áa]b|dom)[a-zéá]*\.?,?\s+(\d{1,2})\s+de\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|set|oct|nov|dic)[a-z]*/gi;
+
+export function wrongWeekday(text, today = new Date()) {
+  if (typeof text !== 'string') return null;
+  const resolve = (month, day) => {
+    let y = today.getFullYear();
+    const d = new Date(Date.UTC(y, month, day));
+    if (d.getTime() < today.getTime() - 31 * 864e5) return new Date(Date.UTC(y + 1, month, day));
+    return d;
+  };
+  for (const m of text.matchAll(EN)) {
+    const said = DAYS.indexOf(m[1].toLowerCase()), date = resolve(MONTHS[m[2].toLowerCase()], Number(m[3]));
+    if (said !== date.getUTCDay()) return { phrase: m[0], actual: date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) };
+  }
+  for (const m of text.matchAll(ES)) {
+    const said = DAY_ES[m[1].toLowerCase()], date = resolve(MONTHS[m[3].toLowerCase()], Number(m[2]));
+    if (said !== undefined && said !== date.getUTCDay()) return { phrase: m[0], actual: date.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) };
+  }
+  return null;
+}
+
+export function dateInstruction(hit) {
+  return `A date in this message has the wrong weekday: "${hit.phrase}" is actually ${hit.actual}. Recompute every weekday and date in the message from the calendar before sending; if in doubt, give the date without the weekday.`;
 }

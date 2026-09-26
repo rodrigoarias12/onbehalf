@@ -18,7 +18,7 @@
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { ownerVoice, rewriteInstruction, isOwnerSession } from './voice.js';
+import { ownerVoice, rewriteInstruction, isOwnerSession, wrongWeekday, dateInstruction } from './voice.js';
 
 // Shipped inside OpenClaw's own dist/extensions (see cloud/Dockerfile), so the SDK is two levels up.
 import { definePluginEntry } from '../../plugin-sdk/plugin-entry.js';
@@ -73,8 +73,36 @@ export default definePluginEntry({
       if (ctx?.sessionKey && isOwnerSession(ctx.sessionKey) && ctx.conversationId) ownerRooms.add(`${ctx.channelId}:${ctx.conversationId}`);
     });
 
+    // 0. Facts the model should not have to look up or compute: who is who, the room it is in,
+    //    and today's date with its weekday. Delivered resolved on every turn, no tool call.
+    api.on('before_prompt_build', (event, ctx) => {
+      const w = who(ctx?.workspaceDir);
+      const tz = w.timezone || 'UTC';
+      const now = new Date();
+      const today = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: tz });
+      const next = [...Array(14)].map((_, i) => new Date(now.getTime() + (i + 1) * 864e5).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: tz })).join(', ');
+      const owner = w.owner || 'your owner', me = w.assistant || 'the assistant';
+      const room = isOwnerSession(ctx?.sessionKey) ? `your owner's private chat: talk to ${owner} plainly` : `a room with people other than ${owner}: write as ${me}, ${owner}'s assistant, ${owner} in the third person`;
+      const lines = [
+        `[OnBehalf facts, resolved by the system]`,
+        `Owner: ${owner}. You sign as: ${me}, ${owner}'s assistant. Owner's time zone: ${tz}.`,
+        w.windows ? `Owner's usual windows: ${w.windows}.` : null,
+        w.firstMessage ? `First message to a new person: ${w.firstMessage === 'show' ? "show it to the owner first" : 'send it'}.` : null,
+        `Today is ${today} (${tz}). The next 14 days: ${next}. Copy weekdays from this list; never compute them.`,
+        `This room: ${room}.`,
+      ].filter(Boolean);
+      return { prependContext: lines.join('\n') };
+    });
+
     // 1. The reply of a turn that runs in someone else's room.
     api.on('before_agent_finalize', (event, ctx) => {
+      // Dates are checked in every room, the owner's included: a wrong weekday misleads anyone.
+      const bad = wrongWeekday(event?.lastAssistantMessage);
+      if (bad) {
+        log(`revise session=${ctx?.sessionKey} rule="weekday" phrase="${bad.phrase}" actual="${bad.actual}"`);
+        const instruction = dateInstruction(bad);
+        return { action: 'revise', reason: instruction, retry: { instruction, idempotencyKey: 'onbehalf-date', maxAttempts: 2 } };
+      }
       if (process.env.ONBEHALF_GUARD_ALL !== '1' && isOwnerSession(ctx?.sessionKey ?? event?.sessionKey)) return;
       const hit = ownerVoice(event?.lastAssistantMessage);
       if (!hit) return;
@@ -93,6 +121,8 @@ export default definePluginEntry({
         if (process.env.ONBEHALF_GUARD_ALL !== '1' && (p.target === 'plow-owner' || p.to === 'plow-owner')) return;
         text = p.message ?? p.text ?? p.body;
       }
+      const bad = wrongWeekday(text);
+      if (bad) { log(`block tool=${event.toolName} rule="weekday" phrase="${bad.phrase}"`); return { block: true, blockReason: `Not sent. ${dateInstruction(bad)}` }; }
       const hit = ownerVoice(text);
       if (!hit) return;
       log(`block tool=${event.toolName} rule="${hit.rule}" phrase="${hit.phrase}"`);

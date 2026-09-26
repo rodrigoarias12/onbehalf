@@ -1,3 +1,5 @@
+<img src="docs/logo.png" width="72" alt="OnBehalf">
+
 # OnBehalf
 
 **A scheduling assistant you text. It speaks for you, never as you.**
@@ -27,12 +29,19 @@ them depends on the model obeying:
 
 The owner's private chat is untouched: there the assistant talks to its owner normally.
 
+A fourth check keeps dates honest: a weekday that does not match its date ("Monday, Oct 6" when
+Oct 6 is a Tuesday) is sent back for a rewrite in every room, and the plugin puts the owner's
+name, time zone, today's date and the next two weeks with their weekdays at the top of every turn,
+so the model never has to compute a weekday.
+
 Verified on OpenClaw 2026.9.6: told to send *"Hey Patrick! I am free for lunch any day next
 week… See you then!"* word for word in a group thread, the agent delivered *"Hi Patrick, this
 is Spruce, Sam's assistant. Sam is free for lunch any day next week…"*. The same line in the
 owner's private chat went through unchanged. The rules are in
-[`voice.js`](plugin/voice-guard/voice.js) and tested against real lines in
-[`test/voice.test.mjs`](test/voice.test.mjs).
+[`voice.js`](plugin/voice-guard/voice.js). [`test/corpus.mjs`](test/corpus.mjs) measures them on 60
+real lines (37 owner-voice lines stopped, 23 assistant lines passed, no false alarms), and
+[`test/scenarios.mjs`](test/scenarios.mjs) runs 13 conversations against the real model: in 25
+turns the guard never had to step in, because the identity held on its own; it is the net.
 
 ## Install
 

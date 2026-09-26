@@ -1,0 +1,131 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Agent Blueprint</title>
+<style>
+@font-face{font-family:'Rethink Sans';src:url('../../dailyrecap/video/public/fonts/RethinkSans-Regular.ttf');font-weight:400}
+@font-face{font-family:'Rethink Sans';src:url('../../dailyrecap/video/public/fonts/RethinkSans-Medium.ttf');font-weight:500}
+@font-face{font-family:'Rethink Sans';src:url('../../dailyrecap/video/public/fonts/RethinkSans-SemiBold.ttf');font-weight:600}
+:root{--green:#a0e099;--green-darker:#83cc7a;--green-darker-ext:#2c5227;--ink:#20291f;--mid:#647063;--low:#9ca89b;--outline:#dde5dc;--outline-accent:#ced6ce;--overlay:#f0f4ef;--surface:#fff;--bg:#f8faf7;--warning:#f59e0b}
+*{box-sizing:border-box}
+body{margin:0;width:1600px;height:1130px;background:var(--bg);font-family:'Rethink Sans',system-ui,sans-serif;color:var(--ink)}
+header{height:118px;padding:34px 56px 0;display:flex;align-items:flex-start;gap:14px}
+header svg.m{width:36px;height:36px;flex:none}
+header h1{font-size:26px;font-weight:600;letter-spacing:-.02em;margin:0}
+header p{margin:4px 0 0;color:var(--mid);font-size:14px}
+.canvas{position:absolute;left:0;right:0;top:118px;bottom:0;border-top:1px solid var(--outline);background-color:var(--surface);
+  background-image:radial-gradient(circle at center, rgb(131 204 122 / .45) 1.1px, transparent 1.1px);background-size:16px 16px}
+.t{position:absolute;font-size:10px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--mid)}
+.n{position:absolute;border:1px solid var(--outline-accent);border-radius:10px;background:var(--surface);box-shadow:0 1px 2px rgb(32 41 31 / .08);padding:10px 12px}
+.n.off{border-style:dashed}
+.n.hot{border:2px solid var(--green-darker);padding:9px 11px}
+.nm{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;margin:0}
+.ico{flex:none;width:22px;height:22px;border-radius:6px;display:grid;place-items:center;background:var(--overlay);color:var(--mid)}
+.ico.a{background:var(--green);color:var(--ink)}
+.ico svg{width:14px;height:14px}
+.d{font-size:12px;line-height:1.45;color:var(--mid);margin:3px 0 0}
+.q{font-size:12px;line-height:1.45;margin:6px 0 0;padding:6px 9px;border-radius:12px;border-bottom-left-radius:4px;background:#eef3ed;color:var(--ink)}
+.jaula{position:absolute;border:1px dashed var(--green-darker);border-radius:14px;background:rgb(253 255 252 / .72)}
+.jaula .rot{position:absolute;left:16px;top:12px}
+.llaves{position:absolute;left:16px;bottom:10px;font-size:11px;color:var(--mid)}
+.chips{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.chip{font-size:11.5px;font-weight:500;border:1px solid var(--outline-accent);border-radius:999px;padding:4px 10px;background:var(--surface);color:var(--ink)}
+.chip b{display:inline-grid;place-items:center;width:17px;height:17px;border-radius:50%;background:var(--green);font-size:10px;margin-right:6px}
+.pill{position:absolute;font-size:11px;font-weight:500;border:1px solid var(--outline-accent);border-radius:999px;padding:4px 10px;color:var(--mid);background:var(--surface)}
+svg.cables{position:absolute;left:0;top:0;width:1600px;height:1062px;overflow:visible;pointer-events:none;z-index:1}
+.n,.pill{z-index:2}
+.c{fill:none;stroke:var(--green-darker);stroke-width:1.5}
+.c.off{stroke:var(--low);stroke-dasharray:5 5}
+.port{fill:#fff;stroke:var(--low);stroke-width:1.5}
+.sep{position:absolute;left:56px;right:56px;height:1px;background:var(--outline)}
+.ley{position:absolute;right:56px;bottom:22px;display:flex;gap:18px;font-size:11.5px;color:var(--mid);align-items:center}
+.ley i{display:inline-block;width:26px;height:0;border-top:1.5px solid var(--green-darker);vertical-align:middle;margin-right:6px}
+.ley i.o{border-top:1.5px dashed var(--low)}
+</style>
+<body>
+<header>
+ <svg class="m" viewBox="116.16 103.77 847.68 847.68"><rect x="116.16" y="103.77" width="847.68" height="847.68" rx="164.07" fill="#a0e099"/><path fill="#20291f" d="M761.24,306.36h0s-221.24,0-221.24,0h-221.24c0,122.19,99.05,221.24,221.24,221.24h-221.24v221.24h0c122.19,0,221.24-99.05,221.24-221.24v221.24h221.24c0-122.19-99.05-221.24-221.24-221.24,122.19,0,221.24-99.05,221.24-221.24Z"/></svg>
+ <div><h1>How the agents fit together</h1><p>Top: OnBehalf schedules for its owner and speaks as the owner's assistant. Bottom: every evening DailyRecap asks every agent what happened and makes the CEO's video.</p></div>
+</header>
+<div class="canvas">
+<svg class="cables" viewBox="0 0 1600 1062" id="cables"></svg>
+
+<!-- ============ OnBehalf ============ -->
+<div class="t" style="left:56px;top:26px">Who writes</div>
+<div class="n" id="sam" style="left:56px;top:56px;width:290px">
+ <p class="nm"><span class="ico"><svg viewBox="0 0 16 16"><circle cx="8" cy="5" r="3" fill="currentColor"/><path d="M2 15c.6-3.2 3.1-5 6-5s5.4 1.8 6 5z" fill="currentColor"/></svg></span>Sam · owner</p>
+ <p class="d">Over iMessage, in his private chat:</p><p class="q">set up coffee with Patrick next week, +1 650…</p></div>
+<div class="n" id="patrick" style="left:56px;top:250px;width:290px">
+ <p class="nm"><span class="ico"><svg viewBox="0 0 16 16"><circle cx="8" cy="5" r="3" fill="currentColor"/><path d="M2 15c.6-3.2 3.1-5 6-5s5.4 1.8 6 5z" fill="currentColor"/></svg></span>Patrick · third party</p>
+ <p class="d">Replies in the thread the assistant opened, with Sam in it.</p></div>
+
+<div class="jaula" style="left:420px;top:40px;width:720px;height:476px">
+ <p class="t rot">Sam's container on Plow · one phone number · OpenClaw</p>
+ <p class="llaves">Calendar and contacts: through Sam's Mac (Latch), outside the container.</p>
+</div>
+<div class="n" id="privada" style="left:446px;top:84px;width:250px">
+ <p class="nm"><span class="ico"><svg viewBox="0 0 16 16"><path d="M2 3h12v8H6l-4 3z" fill="currentColor"/></svg></span>Private room</p>
+ <p class="d">Sam and his assistant. Here it talks plainly, in the first person.</p></div>
+<div class="n" id="salas" style="left:446px;top:250px;width:250px">
+ <p class="nm"><span class="ico"><svg viewBox="0 0 16 16"><path d="M1 3h9v6H4L1 12z M11 6h4v6l-2-2h-2z" fill="currentColor"/></svg></span>Rooms with others</p>
+ <p class="d">One thread per person. Here, always as Sam's assistant.</p></div>
+<div class="n hot" id="onbehalf" style="left:776px;top:150px;width:334px">
+ <p class="nm"><span class="ico a"><svg viewBox="0 0 16 16"><rect x="3" y="5" width="10" height="8" rx="2" fill="currentColor"/><circle cx="6" cy="9" r="1" fill="#a0e099"/><circle cx="10" cy="9" r="1" fill="#a0e099"/><rect x="7.3" y="2" width="1.4" height="3" fill="currentColor"/></svg></span>OnBehalf · scheduling assistant</p>
+ <p class="d">Skill <b>schedule</b>: understands the ask, finds 2 to 4 real slots, texts, agrees, books, and releases the rest.</p></div>
+<div class="n" id="guard" style="left:446px;top:350px;width:664px;border-color:var(--green-darker)">
+ <p class="nm"><span class="ico a"><svg viewBox="0 0 16 16"><path d="M8 1l6 2.5v4c0 3.6-2.6 6.5-6 7.5-3.4-1-6-3.9-6-7.5v-4z" fill="currentColor"/></svg></span>Voice guard · in the Gateway, outside the model</p>
+ <div class="chips"><span class="chip"><b>1</b>Checks the reply and asks for a rewrite</span><span class="chip"><b>2</b>Blocks the send tool</span><span class="chip"><b>3</b>Cancels at the exit door</span></div></div>
+
+<div class="t" style="left:1190px;top:26px">What goes out</div>
+<div class="n" id="msg" style="left:1190px;top:56px;width:354px">
+ <p class="nm"><span class="ico a"><svg viewBox="0 0 16 16"><path d="M2 3h12v8H6l-4 3z" fill="currentColor"/></svg></span>To Patrick, as the assistant</p>
+ <p class="q">Hi Patrick, this is Spruce, Sam's assistant. Sam is free Tue–Fri at noon. Which works?</p></div>
+<div class="n" id="invite" style="left:1190px;top:222px;width:354px">
+ <p class="nm"><span class="ico"><svg viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M2 7h12" stroke="currentColor" stroke-width="1.6"/></svg></span>Calendar invite</p>
+ <p class="d">Once Patrick picks. The other holds are released.</p></div>
+<div class="n" id="aviso" style="left:1190px;top:330px;width:354px">
+ <p class="nm"><span class="ico"><svg viewBox="0 0 16 16"><path d="M3 8l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>Note to Sam</p>
+ <p class="d">One line in his private chat: "Coffee with Patrick: Thu 12–1. Invite sent."</p></div>
+<div class="pill" style="left:1190px;top:430px">Never goes out: "I'm free", "See you then!", "works for me"</div>
+
+<div class="sep" style="top:540px"></div>
+
+<!-- ============ DailyRecap ============ -->
+<div class="t" style="left:56px;top:566px">Every evening, the chief of staff asks</div>
+<div class="n" id="theo" style="left:56px;top:596px;width:320px">
+ <p class="nm"><span class="ico"><svg viewBox="0 0 16 16"><path d="M5 4L1 8l4 4M11 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></span>Theo · the CTO's assistant</p>
+ <p class="d">Reads the repo, the builds and the open bugs.</p></div>
+<div class="n" id="pilar" style="left:56px;top:690px;width:320px">
+ <p class="nm"><span class="ico"><svg viewBox="0 0 16 16"><path d="M2 14V9h3v5zM6.5 14V5h3v9zM11 14V2h3v12z" fill="currentColor"/></svg></span>Pilar · the CPO's assistant</p>
+ <p class="d">Reads the backlog and the KPI sheet, with its series.</p></div>
+<div class="n" id="ob2" style="left:56px;top:784px;width:320px">
+ <p class="nm"><span class="ico a"><svg viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M2 7h12" stroke="currentColor" stroke-width="1.6"/></svg></span>OnBehalf</p>
+ <p class="d">Meetings booked and pending, each with its thread.</p></div>
+<div class="n off" id="grow" style="left:56px;top:878px;width:320px">
+ <p class="nm"><span class="ico"><svg viewBox="0 0 16 16"><path d="M2 12l4-4 3 3 5-6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></span>Grow · YoRobot agent</p>
+ <p class="d">Through its chat channel or Agent2Agent. Channel still pending.</p></div>
+
+<div class="n hot" id="dr" style="left:560px;top:716px;width:380px">
+ <p class="nm"><span class="ico a"><svg viewBox="0 0 16 16"><rect x="1" y="7" width="8" height="2.6" rx="1.3" fill="currentColor"/><circle cx="12.2" cy="8.3" r="3" fill="currentColor"/></svg></span>DailyRecap · chief of staff</p>
+ <p class="d">The same question to everyone at 6 pm. Opens what each one cites before it counts; what it cannot open is marked "reported, not verified". Adds Odoo or a sheet when connected.</p></div>
+
+<div class="n" id="video" style="left:1190px;top:716px;width:354px">
+ <p class="nm"><span class="ico a"><svg viewBox="0 0 16 16"><rect x="4" y="1" width="8" height="14" rx="2" fill="currentColor"/><path d="M7 6l3 2-3 2z" fill="#a0e099"/></svg></span>The TikTok of the company, for the CEO</p>
+ <p class="d">Vertical, 30 to 45 seconds, the day's number on the first frame, every row with who said it and its source.</p></div>
+
+<div class="ley"><span><i></i>path that works today</span><span><i class="o"></i>pending</span><span>Dashed green border: each person's container on Plow</span></div>
+</div>
+<script>
+const svg=document.getElementById('cables'), off=document.querySelector('.canvas').getBoundingClientRect();
+function box(id){const r=document.getElementById(id).getBoundingClientRect();return {l:r.left-off.left,r:r.right-off.left,t:r.top-off.top,b:r.bottom-off.top,cy:(r.top+r.bottom)/2-off.top,cx:(r.left+r.right)/2-off.left};}
+function cable(a,b,o={}){const A=box(a),B=box(b);let x1=A.r,y1=o.ya??A.cy,x2=B.l,y2=o.yb??B.cy;
+ if(o.down){x1=A.cx+(o.dx||0);y1=A.b;x2=B.cx+(o.dx2||0);y2=B.t;const p=`M${x1},${y1} C${x1},${y1+40} ${x2},${y2-40} ${x2},${y2}`;add(p,o);port(x1,y1);port(x2,y2);return;}
+ if(o.up){x1=A.cx+(o.dx||0);y1=A.t;x2=B.cx+(o.dx2||0);y2=B.b;const p=`M${x1},${y1} C${x1},${y1-40} ${x2},${y2+40} ${x2},${y2}`;add(p,o);port(x1,y1);port(x2,y2);return;}
+ const k=Math.max(40,(x2-x1)/2);add(`M${x1},${y1} C${x1+k},${y1} ${x2-k},${y2} ${x2},${y2}`,o);port(x1,y1);port(x2,y2);}
+function add(d,o){const p=document.createElementNS('http://www.w3.org/2000/svg','path');p.setAttribute('d',d);p.setAttribute('class','c'+(o.off?' off':''));svg.appendChild(p);}
+function port(x,y){const c=document.createElementNS('http://www.w3.org/2000/svg','circle');c.setAttribute('cx',x);c.setAttribute('cy',y);c.setAttribute('r',3.5);c.setAttribute('class','port');svg.appendChild(c);}
+cable('sam','privada'); cable('patrick','salas');
+cable('privada','onbehalf'); cable('salas','onbehalf');
+cable('onbehalf','guard',{down:true,dx:0,dx2:220});
+cable('guard','msg',{ya:box('guard').cy-10}); cable('guard','invite'); cable('guard','aviso',{ya:box('guard').cy+10});
+cable('theo','dr'); cable('pilar','dr'); cable('ob2','dr'); cable('grow','dr',{off:true});
+cable('dr','video');
+</script>
+</body></html>
