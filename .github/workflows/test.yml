@@ -8,3 +8,5 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: node test/voice.test.mjs
+      - run: node test/corpus.mjs
+      - run: node test/invite.test.mjs

@@ -56,7 +56,14 @@ meeting without your owner's ok.
 
 ## 6. Book it and report
 
-- Book the chosen slot on the owner's calendar with the other person's email if you have it
+- **Without the owner's Mac** (no calendar tools), the invite is a file. Run
+  `node /opt/onbehalf/bin/invite.mjs --title "Lunch: Sam / Patrick" --date 2026-10-01 --time 12:00
+  --minutes 60 --tz <the owner's zone> --where "<place or link>" --organizer "<owner>"
+  --attendee "<Name> <email>"` (the attendee only if you have the email). It prints JSON with
+  `when` and `media_line`. Reply in the thread with the one-line recap using `when` exactly as
+  printed, then `media_line` on its own line: the file arrives in the thread and both people tap
+  it to add the meeting. Never type the time yourself in the recap; copy `when`.
+- **With the owner's Mac**, book the chosen slot on the owner's calendar with the other person's email if you have it
   (ask for it in the thread: "What email should I send the invite to?"), the place or the
   link, and a title both would recognize.
 - Delete the other holds.

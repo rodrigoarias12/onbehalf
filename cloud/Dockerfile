@@ -15,6 +15,8 @@ ENV AGENT_BLURB="A scheduling assistant you text. It finds times, texts the othe
 
 COPY AGENTS.md /opt/plow/prompt/AGENTS.md
 COPY skills/ /opt/plow/skills/
+COPY bin/ /opt/onbehalf/bin/
+ENV ONBEHALF_INVITES=/var/lib/plow/workspace/invites
 
 USER root
 COPY plugin/voice-guard/ /app/dist/extensions/voice-guard/

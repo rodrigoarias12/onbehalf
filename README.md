@@ -55,6 +55,15 @@ windows, and whether to show you the first message to someone new.
 and set `plugins.entries.voice-guard.hooks.allowConversationAccess: true`), put `AGENTS.md`
 and `skills/` in the agent's workspace, and restart the Gateway.
 
+## Invites without a connected Mac
+
+With the owner's Mac connected through Latch, OnBehalf books on the owner's calendar. Without it,
+[`bin/invite.mjs`](bin/invite.mjs) writes a standard `.ics` invite and the assistant sends it in
+the thread: both people tap it to add the meeting. The script resolves the time zone, the UTC
+conversion and the weekday, so the model never computes a time; the recap copies the script's
+wording. [`test/invite.test.mjs`](test/invite.test.mjs) pins the conversions, daylight saving
+included.
+
 ## Works with DailyRecap
 
 [DailyRecap](https://github.com/rodrigoarias12/dailyrecap), the startup's chief of staff, asks
