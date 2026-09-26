@@ -12,6 +12,8 @@ sooner or later, and a prompt rule does not stop it: it holds most of the time, 
 an investor cannot be "most of the time". So OnBehalf enforces it in the Gateway, outside the
 model.
 
+![How the agents fit together](docs/blueprint.png)
+
 ## The voice guard
 
 [`plugin/voice-guard`](plugin/voice-guard) is an OpenClaw plugin with three checks. None of
