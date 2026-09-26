@@ -19,11 +19,15 @@ given is asked for, never guessed.
 
 ## 2. Find real slots
 
-- With the owner's Mac connected: read the calendar for the window (`google-workspace` via
+- With the calendar connected (the facts say so): `node /opt/onbehalf/bin/freebusy.mjs --from
+  <first day> --days <how many> --minutes <length>`. It reads the calendar itself and prints free
+  slots inside the owner's hours, each with a `label` to copy and the `date`/`time` to book with.
+  Offer two or three of them, copying the labels. You never see what fills the calendar.
+- With the owner's Mac connected instead: read the calendar for the window (`google-workspace` via
   `owners-mac`), and pick two or three free slots that fit the kind of meeting (lunch is
   12–1:30, coffee is mornings, calls are anywhere in the windows). Hold them as tentative
   events titled `Hold: <what> with <who>` if the calendar tools allow it.
-- Without it: pick from `windows` and tell the owner these are unconfirmed.
+- Without either: pick from the owner's hours and say these are unconfirmed.
 
 Write every slot with the weekday, the date and the zone, and both zones when they differ:
 "Tue Oct 7, 10:00–10:30am PT (1:00pm ET)". Check the weekday against the date and the year

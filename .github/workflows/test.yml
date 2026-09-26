@@ -10,3 +10,4 @@ jobs:
       - run: node test/voice.test.mjs
       - run: node test/corpus.mjs
       - run: node test/invite.test.mjs
+      - run: node test/freebusy.test.mjs

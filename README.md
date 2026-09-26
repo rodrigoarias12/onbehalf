@@ -55,6 +55,16 @@ windows, and whether to show you the first message to someone new.
 and set `plugins.entries.voice-guard.hooks.allowConversationAccess: true`), put `AGENTS.md`
 and `skills/` in the agent's workspace, and restart the Gateway.
 
+## Your Google calendar, without a Mac
+
+In the first conversation the assistant asks for the calendar's private read-only address
+(Google Calendar › Settings › your calendar › Integrate calendar › "Secret address in iCal
+format"). [`bin/freebusy.mjs`](bin/freebusy.mjs) reads it and returns only free slots inside the
+owner's hours, already labelled with weekday and date; busy blocks are counted, never described,
+so nothing about the owner's day reaches the model. Recurring events, exceptions, all-day,
+cancelled and "free" events and time zones are handled; [`test/freebusy.test.mjs`](test/freebusy.test.mjs)
+pins them. With Plow's Latch app on the owner's Mac, it can use Google through the Mac instead.
+
 ## Invites without a connected Mac
 
 With the owner's Mac connected through Latch, OnBehalf books on the owner's calendar. Without it,
