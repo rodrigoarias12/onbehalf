@@ -35,4 +35,6 @@ assert.equal(wrongWeekday('How about Tuesday, Oct 6, 12-1pm PT?', today), null);
 assert.equal(wrongWeekday('Tue Sep 29, Wed Sep 30 or Thu Oct 1', today), null);
 assert.ok(wrongWeekday('¿Le sirve el lunes 6 de octubre?', today));
 assert.equal(wrongWeekday('¿Le sirve el martes 6 de octubre?', today), null);
+assert.ok(wrongWeekday('Que tal segunda-feira, 6 de outubro?', today), '6/10/2026 é terça');
+assert.equal(wrongWeekday('Que tal terça-feira, 6 de outubro?', today), null);
 console.log(`ok: ${ownerLines.length} owner-voice lines flagged, ${assistantLines.length} assistant lines pass`);

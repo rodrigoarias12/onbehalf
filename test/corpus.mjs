@@ -25,6 +25,9 @@ export const OWNER = [
   // Spanish
   'Estoy libre el martes al mediodía.', 'Ando ocupado esta semana.', 'El jueves me queda bien.', 'Nos vemos el jueves.',
   'Dejame ver mi agenda.',
+  // Portuguese
+  'Estou livre na terça ao meio-dia.', 'Tô ocupado essa semana.', 'Quinta pra mim funciona.', 'Posso às 3 da tarde.',
+  'Te vejo na quinta!', 'Deixa eu ver minha agenda.', 'Vamos marcar um café na sexta?', 'Nos vemos amanhã.',
 ];
 
 export const ASSISTANT = [
@@ -40,6 +43,10 @@ export const ASSISTANT = [
   "Let me check with Sam and come back to you.", "Let me know which works best for you.", 'Looking forward to confirming a time.',
   "Hola Patrick, soy Spruce, el asistente de Sam. Sam está libre el martes al mediodía.",
   'Sam te espera el jueves en Verve.', 'Le confirmo a Sam y te aviso.',
+  // Portuguese
+  'Oi Patrick, aqui é a Spruce, assistente do Sam (sou uma IA). O Sam está livre na terça ao meio-dia.',
+  'Posso te mandar o convite por aqui mesmo.', 'Vou confirmar com o Sam e te aviso hoje.', 'O Sam te encontra na quinta no Verve.',
+  'Qual horário funciona melhor pra você?',
 ];
 
 const misses = OWNER.filter((l) => !ownerVoice(l));

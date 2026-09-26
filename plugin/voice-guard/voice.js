@@ -26,6 +26,13 @@ export const OWNER_VOICE = [
   ['me queda bien', /\bme\s+(?:queda|viene)\s+(?:bien|mejor)\b/i],
   ['nos vemos', /\bnos\s+vemos\s+(?:el|a las|ma[ñn]ana|entonces|ah[ií])\b/i],
   ['mi agenda', /\bmi\s+(?:agenda|calendario|disponibilidad)\b/i],
+  // Portuguese (Brazil), for owners and guests who text in it.
+  ['estou livre', /\b(?:estou|t[ôo]|fico|estarei)\s+(?:livre|dispon[íi]vel|ocupad[oa]|tranquil[oa])\b/i],
+  ['pra mim funciona', /\b(?:pra|para)\s+mim\s+(?:funciona|d[áa]|serve|fica bom|t[áa] bom)\b/i],
+  ['posso às 3', /\b(?:eu\s+)?posso\s+(?:[àa]s?\s+\d|na\s+(?:segunda|ter[çc]a|quarta|quinta|sexta)|amanh[ãa]|hoje)/i],
+  ['te vejo', /(?:^|[.!?]\s*)(?:te\s+vejo|nos\s+vemos|a\s+gente\s+se\s+v[êe])\b/i],
+  ['minha agenda', /\bminha\s+(?:agenda|disponibilidade|semana|tarde|manh[ãa])\b/i],
+  ['vamos marcar', /(?:^|[.!?]\s*)vamos\s+(?:marcar|tomar|almo[çc]ar|nos\s+encontrar)\b/i],
 ];
 
 /** Returns the first owner-voice phrase found, or null. Quoted text ("…") is not the assistant's voice and is skipped. */
@@ -65,6 +72,9 @@ const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const MONTHS = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
   ene: 0, abr: 3, ago: 7, dic: 11, set: 8 };
 const DAY_ES = { lun: 1, mar: 2, 'mié': 3, mie: 3, jue: 4, vie: 5, 'sáb': 6, sab: 6, dom: 0 };
+const DAY_PT = { seg: 1, ter: 2, qua: 3, qui: 4, sex: 5, 'sáb': 6, sab: 6, dom: 0 };
+const MONTHS_PT = { jan: 0, fev: 1, mar: 2, abr: 3, mai: 4, jun: 5, jul: 6, ago: 7, set: 8, out: 9, nov: 10, dez: 11 };
+const PT = /\b(seg|ter|qua|qui|sex|s[áa]b|dom)[a-zçá]*(?:-feira)?\.?,?\s+(?:dia\s+)?(\d{1,2})\s+de\s+(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)[a-zç]*/gi;
 const EN = /\b(sun|mon|tue|wed|thu|fri|sat)[a-z]*\.?,?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})\b/gi;
 const ES = /\b(lun|mar|mi[ée]|jue|vie|s[áa]b|dom)[a-zéá]*\.?,?\s+(\d{1,2})\s+de\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|set|oct|nov|dic)[a-z]*/gi;
 
@@ -83,6 +93,10 @@ export function wrongWeekday(text, today = new Date()) {
   for (const m of text.matchAll(ES)) {
     const said = DAY_ES[m[1].toLowerCase()], date = resolve(MONTHS[m[3].toLowerCase()], Number(m[2]));
     if (said !== undefined && said !== date.getUTCDay()) return { phrase: m[0], actual: date.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) };
+  }
+  for (const m of text.matchAll(PT)) {
+    const said = DAY_PT[m[1].toLowerCase()], date = resolve(MONTHS_PT[m[3].toLowerCase()], Number(m[2]));
+    if (said !== undefined && said !== date.getUTCDay()) return { phrase: m[0], actual: date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) };
   }
   return null;
 }

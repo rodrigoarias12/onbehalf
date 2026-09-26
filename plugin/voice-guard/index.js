@@ -80,7 +80,12 @@ export default definePluginEntry({
       const tz = w.timezone || 'UTC';
       const now = new Date();
       const today = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: tz });
+      const lang = w.language || 'en';
       const next = [...Array(14)].map((_, i) => new Date(now.getTime() + (i + 1) * 864e5).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: tz })).join(', ');
+      let nextLocal = '';
+      if (!/^en/i.test(lang)) {
+        try { nextLocal = [...Array(14)].map((_, i) => new Date(now.getTime() + (i + 1) * 864e5).toLocaleDateString(lang, { weekday: 'short', day: 'numeric', month: 'short', timeZone: tz })).join(', '); } catch { /* unknown locale */ }
+      }
       const owner = w.owner || 'your owner', me = w.assistant || 'the assistant';
       const room = isOwnerSession(ctx?.sessionKey) ? `your owner's private chat: talk to ${owner} plainly` : `a room with people other than ${owner}: write as ${me}, ${owner}'s assistant, ${owner} in the third person`;
       const lines = [
@@ -88,7 +93,8 @@ export default definePluginEntry({
         `Owner: ${owner}. You sign as: ${me}, ${owner}'s assistant. Owner's time zone: ${tz}.`,
         w.windows ? `Owner's usual windows: ${w.windows}.` : null,
         w.firstMessage ? `First message to a new person: ${w.firstMessage === 'show' ? "show it to the owner first" : 'send it'}.` : null,
-        `Today is ${today} (${tz}). The next 14 days: ${next}. Copy weekdays from this list; never compute them.`,
+        `Owner's language: ${lang}. Write to the owner in it; write to anyone else in the language they write in (the first message to a new person in the owner's language unless you know theirs).`,
+        `Today is ${today} (${tz}). The next 14 days: ${next}.${nextLocal ? ` In ${lang}: ${nextLocal}.` : ''} Copy weekdays from these lists; never compute them.`,
         `This room: ${room}.`,
       ].filter(Boolean);
       return { prependContext: lines.join('\n') };
