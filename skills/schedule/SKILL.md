@@ -44,6 +44,17 @@ automatically. The first message:
 If `firstMessage` is `show` and this person is new, send that draft to the owner's private
 chat first and wait for "ok" (or an edit).
 
+Then check that it arrived: `node /opt/onbehalf/bin/delivery.mjs --wait 45`. The line is
+iMessage only, and a number without iMessage never gets the text while it still shows as sent.
+Tell the owner what the script says, in one line:
+- `arrived: true` → "It reached Juan. I'll let you know when he answers."
+- `not_arriving: true` → "It didn't reach Juan: that number most likely has no iMessage. Do you
+  have another iMessage address for him, another number or the email of his Apple ID?"
+- neither yet → "Sent to Juan; not delivered yet. I'll check again."
+
+Never say it arrived before the script does. Never offer SMS, WhatsApp or email: this line
+cannot send them.
+
 ## 4. The back and forth
 
 Replies in that thread run in that room. Keep answering there, as the assistant: confirm the

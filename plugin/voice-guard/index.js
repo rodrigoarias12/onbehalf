@@ -19,6 +19,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ownerVoice, rewriteInstruction, isOwnerSession, wrongWeekday, dateInstruction } from './voice.js';
+import { deliveryFacts } from './delivery.js';
 
 // Shipped inside OpenClaw's own dist/extensions (see cloud/Dockerfile), so the SDK is two levels up.
 import { definePluginEntry } from '../../plugin-sdk/plugin-entry.js';
@@ -63,6 +64,27 @@ async function isThirdPartyRoom(channelId, to) {
 
 const log = (msg) => console.log(`[voice-guard] ${msg}`);
 
+// Delivery status for the owner's turn, read at most every 30 s: a busy chat is not an API storm.
+let deliveryCache = { at: 0, text: null };
+async function deliveryLine() {
+  if (!process.env.PLOW_API_BASE) return null; // not on Plow (local Gateway): nothing to read
+  if (Date.now() - deliveryCache.at < 30000) return deliveryCache.text;
+  deliveryCache = { at: Date.now(), text: await deliveryFacts() };
+  return deliveryCache.text;
+}
+
+// In a room with other people the assistant needs its scripts and nothing else. Whoever writes
+// there cannot talk it into reading the workspace (onbehalf.json holds the calendar's secret
+// address) or running anything else: this is enforced here, not asked of the model.
+const SCRIPT = /^\s*node\s+\/opt\/onbehalf\/bin\/(?:freebusy|invite|delivery)\.mjs(?:\s+[^;&|`$<>\\\n]*)?$/;
+const FILE_TOOLS = new Set(['read', 'write', 'edit', 'apply_patch']);
+// The calendar's secret address, or anything shaped like one, never goes out to anyone.
+function leaksCalendar(text, w) {
+  if (!text) return false;
+  if (w.calendar?.ics && text.includes(w.calendar.ics)) return true;
+  return /calendar\/ical\/[^\s]*\/private-[0-9a-f]+/i.test(text);
+}
+
 export default definePluginEntry({
   id: 'voice-guard',
   name: 'OnBehalf voice guard',
@@ -75,7 +97,7 @@ export default definePluginEntry({
 
     // 0. Facts the model should not have to look up or compute: who is who, the room it is in,
     //    and today's date with its weekday. Delivered resolved on every turn, no tool call.
-    api.on('before_prompt_build', (event, ctx) => {
+    api.on('before_prompt_build', async (event, ctx) => {
       const w = who(ctx?.workspaceDir);
       const tz = w.timezone || 'UTC';
       const now = new Date();
@@ -88,10 +110,13 @@ export default definePluginEntry({
       }
       const owner = w.owner || '(not set yet)', me = w.assistant || '(not set yet)';
       const room = isOwnerSession(ctx?.sessionKey) ? `your owner's private chat: talk to ${owner} plainly` : `a room with people other than ${owner}: write as ${me}, ${owner}'s assistant, ${owner} in the third person`;
-      const setUp = Boolean(w.owner);
+      const setUp = Boolean(w.owner), ownerRoom = isOwnerSession(ctx?.sessionKey);
+      const delivery = ownerRoom ? await deliveryLine() : null;
       const lines = [
         `[OnBehalf facts, resolved by the system]`,
-        setUp ? null : `SETUP NOT DONE: this owner has not set you up yet. Whatever they wrote, reply with the welcome message from "First conversation" in AGENTS.md, in the language they wrote in. Do not ask how you can help.`,
+        setUp ? null : ownerRoom
+          ? `SETUP NOT DONE: this owner has not set you up yet. Whatever they wrote, reply with the welcome message from "First conversation" in AGENTS.md, in the language they wrote in. Do not ask how you can help.`
+          : `Setup is not finished. Never send the welcome here and never ask this person about calendars or settings: say you will check with your owner.`,
         `Owner: ${owner}. You sign as: ${me}, ${owner}'s assistant. Owner's time zone: ${tz}.`,
         w.windows ? `Owner's usual windows: ${w.windows}.` : null,
         w.calendar?.ics ? `Owner's calendar: connected (read-only). Free slots: node /opt/onbehalf/bin/freebusy.mjs --from <YYYY-MM-DD> --days <n> --minutes <length>; it prints labels to copy. You never see what is on the calendar, only when the owner is free.` : `Owner's calendar: not connected; use the usual windows and say they are unconfirmed.`,
@@ -99,6 +124,7 @@ export default definePluginEntry({
         `Owner's language: ${lang}. Write to the owner in it; write to anyone else in the language they write in (the first message to a new person in the owner's language unless you know theirs).`,
         `Today is ${today} (${tz}). The next 14 days: ${next}.${nextLocal ? ` In ${lang}: ${nextLocal}.` : ''} Copy weekdays from these lists; never compute them.`,
         `This room: ${room}.`,
+        delivery,
       ].filter(Boolean);
       return { prependContext: lines.join('\n') };
     });
@@ -123,12 +149,25 @@ export default definePluginEntry({
     // 2. Tools that put words in front of someone else.
     api.on('before_tool_call', (event, ctx) => {
       const p = event?.params || {};
+      const guest = !isOwnerSession(ctx?.sessionKey);
+      if (guest && FILE_TOOLS.has(event?.toolName)) {
+        log(`block tool=${event.toolName} rule="guest-room files"`);
+        return { block: true, blockReason: 'Not allowed in a room with other people: files stay private. Answer with what you already know, or say you will check with your owner.' };
+      }
+      if (guest && event?.toolName === 'exec' && !SCRIPT.test(String(p.command ?? p.cmd ?? ''))) {
+        log(`block tool=exec rule="guest-room exec"`);
+        return { block: true, blockReason: 'Not allowed in a room with other people: only node /opt/onbehalf/bin/freebusy.mjs, invite.mjs or delivery.mjs, with plain arguments.' };
+      }
       let text = null;
       if (event?.toolName === 'plow_start_thread') text = p.body;
       else if (event?.toolName === 'message' && (p.action === undefined || p.action === 'send' || p.action === 'reply')) {
         // A send to the owner's own room is the assistant reporting to its owner.
         if (process.env.ONBEHALF_GUARD_ALL !== '1' && (p.target === 'plow-owner' || p.to === 'plow-owner')) return;
         text = p.message ?? p.text ?? p.body;
+      }
+      if (leaksCalendar(text, who(ctx?.workspaceDir))) {
+        log(`block tool=${event.toolName} rule="calendar address"`);
+        return { block: true, blockReason: "Not sent: it contains the calendar's secret address, which never leaves the owner's private chat. Remove it." };
       }
       const bad = wrongWeekday(text);
       if (bad) { log(`block tool=${event.toolName} rule="weekday" phrase="${bad.phrase}"`); return { block: true, blockReason: `Not sent. ${dateInstruction(bad)}` }; }
@@ -140,6 +179,10 @@ export default definePluginEntry({
 
     // 3. The last door: nothing in the owner's voice reaches a third-party room.
     api.on('message_sending', async (event, ctx) => {
+      if (leaksCalendar(event?.content, who(ctx?.workspaceDir))) {
+        const third = await isThirdPartyRoom(ctx?.channelId, ctx?.conversationId ?? event?.to);
+        if (third) { log(`cancel rule="calendar address"`); return { cancel: true, cancelReason: "onbehalf: the calendar's secret address never leaves the owner's private chat" }; }
+      }
       const hit = ownerVoice(event?.content);
       if (!hit) return;
       const third = process.env.ONBEHALF_GUARD_ALL === '1' || await isThirdPartyRoom(ctx?.channelId, ctx?.conversationId ?? event?.to);

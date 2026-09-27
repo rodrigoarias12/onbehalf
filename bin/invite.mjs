@@ -11,7 +11,7 @@
 //
 // RFC 5545, one VEVENT, times in UTC (Z), so every calendar shows the right local time.
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
@@ -20,8 +20,12 @@ const one = (k) => { const i = argv.indexOf(`--${k}`); return i >= 0 ? argv[i + 
 const many = (k) => argv.flatMap((a, i) => (a === `--${k}` ? [argv[i + 1]] : []));
 const fail = (msg) => { console.log(JSON.stringify({ ok: false, error: msg })); process.exit(1); };
 
-const title = one('title'), date = one('date'), time = one('time'), tz = one('tz') || 'UTC';
-const minutes = Number(one('minutes') || 60), where = one('where') || '', organizer = one('organizer') || '';
+// The owner's settings fill what the model leaves out: a missing --tz used to mean UTC, and
+// "10:00" for a Los Angeles owner became 3 am.
+let cfg = {};
+try { cfg = JSON.parse(readFileSync(process.env.ONBEHALF_CONFIG || '/var/lib/plow/workspace/onbehalf.json', 'utf8')); } catch { /* flags only */ }
+const title = one('title') || one('what'), date = one('date'), time = one('time'), tz = one('tz') || cfg.timezone || 'UTC';
+const minutes = Number(one('minutes') || 60), where = one('where') || '', organizer = one('organizer') || cfg.owner || '';
 const out = one('out') || process.env.ONBEHALF_INVITES || '/var/lib/plow/workspace/invites';
 if (!title) fail('--title is required');
 if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) fail('--date must be YYYY-MM-DD');

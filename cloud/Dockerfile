@@ -16,6 +16,8 @@ ENV AGENT_BLURB="A scheduling assistant you text. It finds times, texts the othe
 COPY AGENTS.md /opt/plow/prompt/AGENTS.md
 COPY skills/ /opt/plow/skills/
 COPY bin/ /opt/onbehalf/bin/
+# bin/delivery.mjs shares its module with the voice guard: one reading of the delivery status.
+COPY plugin/voice-guard/delivery.js /opt/onbehalf/plugin/voice-guard/delivery.js
 ENV ONBEHALF_INVITES=/var/lib/plow/workspace/invites
 
 USER root

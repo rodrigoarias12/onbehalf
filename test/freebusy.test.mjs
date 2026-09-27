@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 const bin = new URL('../bin/freebusy.mjs', import.meta.url).pathname, cal = new URL('./fixtures/calendar.ics', import.meta.url).pathname;
-const r = JSON.parse(execFileSync('node', [bin, '--ics-file', cal, '--tz', 'America/Sao_Paulo', '--from', '2026-09-28', '--days', '5', '--windows', '12:00-14:00,17:00-19:00', '--minutes', '60', '--lang', 'pt-BR'], { encoding: 'utf8' }));
+const r = JSON.parse(execFileSync('node', [bin, '--ics-file', cal, '--tz', 'America/Sao_Paulo', '--from', '2026-09-28', '--days', '5', '--windows', '12:00-14:00,17:00-19:00', '--minutes', '60', '--lang', 'pt-BR'], { encoding: 'utf8', env: { ...process.env, ONBEHALF_NOW: '2026-09-27T12:00:00Z' } }));
 const slots = r.free.map((s) => `${s.date} ${s.time}`);
 const expect = ['2026-09-28 13:00', '2026-09-28 17:00', '2026-09-29 13:00', '2026-09-29 17:00', '2026-09-29 18:00',
   '2026-10-01 12:00', '2026-10-01 13:00', '2026-10-01 17:00', '2026-10-01 18:00', '2026-10-02 12:00', '2026-10-02 13:00', '2026-10-02 17:00'];

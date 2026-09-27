@@ -25,6 +25,8 @@ const one = (k, d) => { const i = argv.indexOf(`--${k}`); return i >= 0 ? argv[i
 const out = (o) => { console.log(JSON.stringify(o)); process.exit(o.ok === false ? 1 : 0); };
 const tz = one('tz', 'UTC'), lang = one('lang', 'en-US'), minutes = Number(one('minutes', 60));
 const fromDate = one('from'), days = Number(one('days', 5));
+// Slots already past are dropped. ONBEHALF_NOW pins "now" for tests, so they do not expire.
+const NOW = process.env.ONBEHALF_NOW ? new Date(process.env.ONBEHALF_NOW) : new Date();
 const windows = (one('windows', '09:00-18:00')).split(',').map((w) => w.trim().split('-').map((t) => t.split(':').map(Number)));
 const weekdays = (() => { const w = one('weekdays', '1-5'); if (w.includes('-')) { const [a, b] = w.split('-').map(Number); return new Set([...Array(b - a + 1)].map((_, i) => a + i)); } return new Set(w.split(',').map(Number)); })();
 try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); } catch { out({ ok: false, error: `unknown time zone: ${tz}` }); }
@@ -141,7 +143,7 @@ for (let i = 0; i < days; i++) {
       const e = new Date(t.getTime() + minutes * 60000);
       const clash = busy.find((b) => b.start < e && b.end > t);
       if (clash) { t = new Date(Math.max(clash.end.getTime(), t.getTime() + 15 * 60000)); t = new Date(Math.ceil(t.getTime() / 9e5) * 9e5); continue; }
-      if (t > new Date()) free.push({ start: t.toISOString(), end: e.toISOString(), date: `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`, time: t.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tz }), label: `${fmtDay(t, lang)}, ${fmtTime(t, lang)}–${fmtTime(e, lang)}` });
+      if (t > NOW) free.push({ start: t.toISOString(), end: e.toISOString(), date: `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`, time: t.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tz }), label: `${fmtDay(t, lang)}, ${fmtTime(t, lang)}–${fmtTime(e, lang)}` });
       t = e;
     }
   }
