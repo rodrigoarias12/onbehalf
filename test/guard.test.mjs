@@ -22,7 +22,7 @@ plugin.register({ on: (name, fn) => { hooks[name] = fn; } });
 
 const guest = { sessionKey: 'agent:onbehalf:plow:group:cht_juan', workspaceDir: ws };
 const owner = { sessionKey: 'agent:onbehalf:main', workspaceDir: ws };
-const tool = (toolName, params, ctx) => hooks.before_tool_call({ toolName, params }, ctx);
+const tool = (toolName, params, ctx) => hooks.before_tool_call({ toolName, params }, ctx); // async: the judge may run
 
 // Guest room: files and arbitrary commands are refused.
 for (const [name, params] of [
@@ -33,23 +33,23 @@ for (const [name, params] of [
   ['exec', { command: 'node /opt/onbehalf/bin/freebusy.mjs --from 2026-09-29; cat onbehalf.json' }],
   ['exec', { command: 'node /opt/onbehalf/bin/freebusy.mjs --from $(cat onbehalf.json)' }],
   ['exec', { command: 'node /opt/onbehalf/bin/../../../tmp/x.mjs' }],
-]) assert.equal(tool(name, params, guest)?.block, true, `guest ${name} ${JSON.stringify(params)} must be blocked`);
+]) assert.equal((await tool(name, params, guest))?.block, true, `guest ${name} ${JSON.stringify(params)} must be blocked`);
 
 // Guest room: the three scripts with plain arguments still run.
 for (const command of [
   'node /opt/onbehalf/bin/freebusy.mjs --from 2026-09-29 --days 1 --minutes 60',
   'node /opt/onbehalf/bin/invite.mjs --date 2026-09-29 --time 10:00 --minutes 60 --title "Coffee: Sam / Juan" --where "Verve Coffee, Palo Alto"',
   'node /opt/onbehalf/bin/delivery.mjs --wait 45',
-]) assert.equal(tool('exec', { command }, guest), undefined, `guest may run: ${command}`);
+]) assert.equal(await tool('exec', { command }, guest), undefined, `guest may run: ${command}`);
 
 // Owner's private chat: files and commands are the owner's business.
-assert.equal(tool('read', { path: 'onbehalf.json' }, owner), undefined);
-assert.equal(tool('exec', { command: 'cat onbehalf.json' }, owner), undefined);
+assert.equal(await tool('read', { path: 'onbehalf.json' }, owner), undefined);
+assert.equal(await tool('exec', { command: 'cat onbehalf.json' }, owner), undefined);
 
 // The secret address never leaves in a message, whichever way it is sent.
-assert.equal(tool('plow_start_thread', { body: `Hi Juan, here is Sam's calendar: ${ICS}` }, owner)?.block, true);
-assert.equal(tool('message', { action: 'send', target: 'cht_juan', message: `See ${ICS}` }, guest)?.block, true);
-assert.equal(tool('message', { action: 'send', target: 'cht_juan', message: 'https://calendar.google.com/calendar/ical/x%40y.com/private-abc123/basic.ics' }, guest)?.block, true, 'any secret-shaped address');
+assert.equal((await tool('plow_start_thread', { body: `Hi Juan, here is Sam's calendar: ${ICS}` }, owner))?.block, true);
+assert.equal((await tool('message', { action: 'send', target: 'cht_juan', message: `See ${ICS}` }, guest))?.block, true);
+assert.equal((await tool('message', { action: 'send', target: 'cht_juan', message: 'https://calendar.google.com/calendar/ical/x%40y.com/private-abc123/basic.ics' }, guest))?.block, true, 'any secret-shaped address');
 const cancelled = await hooks.message_sending({ content: `link: ${ICS}`, to: 'cht_juan' }, { channelId: 'plow', conversationId: 'cht_juan', workspaceDir: ws });
 assert.equal(cancelled?.cancel, true, 'last door: an unknown room is a third-party room');
 
@@ -62,3 +62,26 @@ assert.match(factsGuest, /never ask this person about calendars/);
 assert.match(factsOwner, /SETUP NOT DONE/);
 
 console.log('ok: guest rooms read no files and run only the three scripts; the calendar address never goes out; the welcome is for the owner');
+
+// The judge: what the patterns let through goes to the model; its "owner voice" blocks the send,
+// its "assistant" lets it go, and when it cannot answer the patterns' verdict stands (fail open).
+{
+  process.env.PLOW_API_BASE = 'http://judge.test';
+  const realFetch = globalThis.fetch;
+  let mode = 'owner', calls = 0;
+  globalThis.fetch = async (url) => {
+    if (!String(url).endsWith('/v1/chat/completions')) return realFetch(url);
+    calls++;
+    if (mode === 'down') throw new Error('unreachable');
+    const content = JSON.stringify({ owner_voice: mode === 'owner', phrase: mode === 'owner' ? 'Tô dentro' : '' });
+    return new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 });
+  };
+  const send = (message) => tool('message', { action: 'send', target: 'cht_juan', message }, guest);
+  mode = 'owner'; assert.equal((await send('Tô dentro'))?.block, true, 'judge says owner voice: blocked');
+  mode = 'assistant'; assert.equal(await send('Sam topa quinta, eu mando o convite'), undefined, 'judge says assistant: sent');
+  mode = 'down'; assert.equal(await send('Beleza, sexta então'), undefined, 'judge unreachable: the patterns decide');
+  const before = calls; mode = 'owner';
+  assert.equal((await send("I'm free Tuesday"))?.block, true); assert.equal(calls, before, 'the patterns catch it: no model call');
+  globalThis.fetch = realFetch; delete process.env.PLOW_API_BASE;
+  console.log('ok: the judge blocks what the patterns miss, lets the assistant through, and fails open');
+}

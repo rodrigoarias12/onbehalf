@@ -20,6 +20,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ownerVoice, rewriteInstruction, isOwnerSession, wrongWeekday, dateInstruction } from './voice.js';
 import { deliveryFacts } from './delivery.js';
+import { judgeVoice } from './judge.js';
 
 // Shipped inside OpenClaw's own dist/extensions (see cloud/Dockerfile), so the SDK is two levels up.
 import { definePluginEntry } from '../../plugin-sdk/plugin-entry.js';
@@ -63,6 +64,20 @@ async function isThirdPartyRoom(channelId, to) {
 }
 
 const log = (msg) => console.log(`[voice-guard] ${msg}`);
+
+// The owner's voice in a message to someone else: the patterns first (instant, no network), then,
+// only on Plow and only for what the patterns let through, the model's second opinion. Cached by
+// text, because the same reply is checked at finalize and again when a tool sends it.
+const judged = new Map();
+async function ownerVoiceHit(text, w) {
+  const hit = ownerVoice(text);
+  if (hit || !process.env.PLOW_API_BASE || process.env.ONBEHALF_JUDGE === 'off' || typeof text !== 'string' || !text.trim()) return hit;
+  if (!judged.has(text)) {
+    judged.set(text, judgeVoice(text, w).then((v) => (v?.owner ? { rule: 'judge', phrase: v.phrase || text.slice(0, 80) } : null)));
+    if (judged.size > 200) judged.delete(judged.keys().next().value);
+  }
+  return judged.get(text);
+}
 
 // Delivery status for the owner's turn, read at most every 30 s: a busy chat is not an API storm.
 let deliveryCache = { at: 0, text: null };
@@ -130,7 +145,7 @@ export default definePluginEntry({
     });
 
     // 1. The reply of a turn that runs in someone else's room.
-    api.on('before_agent_finalize', (event, ctx) => {
+    api.on('before_agent_finalize', async (event, ctx) => {
       // Dates are checked in every room, the owner's included: a wrong weekday misleads anyone.
       const bad = wrongWeekday(event?.lastAssistantMessage);
       if (bad) {
@@ -139,7 +154,7 @@ export default definePluginEntry({
         return { action: 'revise', reason: instruction, retry: { instruction, idempotencyKey: 'onbehalf-date', maxAttempts: 2 } };
       }
       if (process.env.ONBEHALF_GUARD_ALL !== '1' && isOwnerSession(ctx?.sessionKey ?? event?.sessionKey)) return;
-      const hit = ownerVoice(event?.lastAssistantMessage);
+      const hit = await ownerVoiceHit(event?.lastAssistantMessage, who(ctx?.workspaceDir));
       if (!hit) return;
       log(`revise session=${ctx?.sessionKey} rule="${hit.rule}" phrase="${hit.phrase}"`);
       const instruction = rewriteInstruction(hit, who(ctx?.workspaceDir));
@@ -147,7 +162,7 @@ export default definePluginEntry({
     });
 
     // 2. Tools that put words in front of someone else.
-    api.on('before_tool_call', (event, ctx) => {
+    api.on('before_tool_call', async (event, ctx) => {
       const p = event?.params || {};
       const guest = !isOwnerSession(ctx?.sessionKey);
       if (guest && FILE_TOOLS.has(event?.toolName)) {
@@ -171,7 +186,7 @@ export default definePluginEntry({
       }
       const bad = wrongWeekday(text);
       if (bad) { log(`block tool=${event.toolName} rule="weekday" phrase="${bad.phrase}"`); return { block: true, blockReason: `Not sent. ${dateInstruction(bad)}` }; }
-      const hit = ownerVoice(text);
+      const hit = await ownerVoiceHit(text, who(ctx?.workspaceDir));
       if (!hit) return;
       log(`block tool=${event.toolName} rule="${hit.rule}" phrase="${hit.phrase}"`);
       return { block: true, blockReason: `Not sent. ${rewriteInstruction(hit, who(ctx?.workspaceDir))}` };
