@@ -40,6 +40,7 @@ for (const command of [
   'node /opt/onbehalf/bin/freebusy.mjs --from 2026-09-29 --days 1 --minutes 60',
   'node /opt/onbehalf/bin/invite.mjs --date 2026-09-29 --time 10:00 --minutes 60 --title "Coffee: Sam / Juan" --where "Verve Coffee, Palo Alto"',
   'node /opt/onbehalf/bin/delivery.mjs --wait 45',
+  'node /opt/onbehalf/bin/pipeline.mjs set juan --status confirmed --note "Juan picked Thu 9am"',
 ]) assert.equal(await tool('exec', { command }, guest), undefined, `guest may run: ${command}`);
 
 // Owner's private chat: files and commands are the owner's business.
@@ -84,4 +85,31 @@ console.log('ok: guest rooms read no files and run only the three scripts; the c
   assert.equal((await send("I'm free Tuesday"))?.block, true); assert.equal(calls, before, 'the patterns catch it: no model call');
   globalThis.fetch = realFetch; delete process.env.PLOW_API_BASE;
   console.log('ok: the judge blocks what the patterns miss, lets the assistant through, and fails open');
+}
+
+// The system, not the model, records a thread the assistant opened, then its delivery.
+{
+  const { mkdtempSync: mk } = await import('node:fs');
+  process.env.ONBEHALF_BIN = new URL('../bin', import.meta.url).pathname;
+  process.env.ONBEHALF_WORKSPACE = mk(join(tmpdir(), 'onbehalf-rec-'));
+  process.env.ONBEHALF_DELIVERY_WAIT_MS = '20';
+  process.env.PLOW_API_BASE = 'http://plow.test';
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    if (u.endsWith('/v1/chats?limit=50')) return new Response(JSON.stringify({ data: [{ uid: 'cht_new', participants: [{ type: 'agent', relationship: 'self' }, { type: 'member', role: 'owner' }, { type: 'member', role: 'member', provider_key: '+16505550199', display_name: '+16505550199' }] }] }));
+    if (u.includes('/v1/chats/cht_new/messages')) return new Response(JSON.stringify({ data: [{ direction: 'outbound', status: 'delivered', created_at: new Date().toISOString(), body: 'Hi Patrick, this is Spruce' }] }));
+    return realFetch(url);
+  };
+  hooks.after_tool_call({ toolName: 'plow_start_thread', params: { members: ['+16505550199'], body: 'Hi Patrick, this is Spruce, Sam’s assistant.' }, result: { details: { chat_uid: 'cht_new', message_sent: true } } }, {});
+  await new Promise((r) => setTimeout(r, 300));
+  const { resolve, list } = await import('../bin/pipeline.mjs');
+  const c = list().contacts.find((x) => x.slug === resolve(null, '+16505550199'));
+  assert.ok(c, 'the thread is in the pipeline without the model doing anything');
+  assert.equal(c.status, 'sent', 'and marked sent only after Plow reported it delivered');
+  const facts = (await hooks.before_prompt_build({}, owner)).prependContext;
+  assert.match(facts, /Next week: Mon, /);
+  assert.match(facts, /Scheduling pipeline/);
+  globalThis.fetch = realFetch; delete process.env.PLOW_API_BASE;
+  console.log('ok: an opened thread is recorded by the system and marked sent once delivered; facts carry the weeks and the pipeline');
 }

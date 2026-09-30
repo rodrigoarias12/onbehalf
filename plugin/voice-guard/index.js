@@ -79,6 +79,46 @@ async function ownerVoiceHit(text, w) {
   return judged.get(text);
 }
 
+// "Next week" is a range, not a feeling: on a Wednesday, Thursday is still THIS week.
+function weeks(now, tz) {
+  const fmt = (d) => d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: tz });
+  const dow = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: tz }).format(now));
+  const mon = new Date(now.getTime() - ((dow + 6) % 7) * 864e5);
+  const iso = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(d);
+  const day = (k) => { const d = new Date(mon.getTime() + k * 864e5); return `${fmt(d)} (${iso(d)})`; };
+  return `This week: ${day(0)} to ${day(6)}. Next week: ${day(7)} to ${day(13)}. "Next week" means only the second range: for it, freebusy.mjs --from ${iso(new Date(mon.getTime() + 7 * 864e5))} --days 5.`;
+}
+
+// A thread the assistant opened is a contact in the pipeline, recorded by the system, not left to
+// the model's memory. 45 s later Plow says whether the first text arrived: "sent" or "unverified".
+async function recordThread(event) {
+  if (event?.toolName !== 'plow_start_thread' || event.error) return;
+  let res = event.result?.details;
+  if (!res?.chat_uid) { try { res = JSON.parse(event.result?.content?.[0]?.text || '{}'); } catch { res = {}; } }
+  const chat = res?.chat_uid, members = event.params?.members || [];
+  if (!chat || !members.length) return;
+  try {
+    const { set, resolve } = await import(`${process.env.ONBEHALF_BIN || '/opt/onbehalf/bin'}/pipeline.mjs`);
+    const slug = resolve(null, members[0]);
+    await set(slug, { handle: members.join(', '), chat, proposed: String(event.params?.body || '').slice(0, 400), note: 'first text sent (recorded by the system)' }, { checkDelivery: async () => true });
+    setTimeout(() => { set(slug, { status: 'sent', note: 'delivery checked 45 s after the send' }).catch(() => {}); }, Number(process.env.ONBEHALF_DELIVERY_WAIT_MS || 45000));
+  } catch (e) { log(`pipeline record failed: ${e.message}`); }
+}
+
+// The pipeline, resolved for the owner's turn: who waits on whom, and what is due now. The model
+// copies these lines; it never works out "has it been 24 hours" on its own.
+async function pipelineLines() {
+  try {
+    const { list } = await import(`${process.env.ONBEHALF_BIN || '/opt/onbehalf/bin'}/pipeline.mjs`);
+    const r = list();
+    if (!r.contacts.length) return null;
+    const open = r.contacts.filter((c) => !['confirmed', 'passed', 'do_not_contact'].includes(c.status));
+    if (!open.length) return null;
+    return [`Scheduling pipeline (from pipeline/, computed; update it with pipeline.mjs set):`,
+      ...open.map((c) => `- ${c.contact}: ${c.status}${c.meeting ? `, ${c.meeting}` : ''} — ${c.say}.${c.nudge_due ? ' DUE NOW.' : ''}${c.hand_back ? ' DUE NOW: ask the owner.' : ''}`)].join('\n');
+  } catch { return null; }
+}
+
 // Delivery status for the owner's turn, read at most every 30 s: a busy chat is not an API storm.
 let deliveryCache = { at: 0, text: null };
 async function deliveryLine() {
@@ -91,7 +131,7 @@ async function deliveryLine() {
 // In a room with other people the assistant needs its scripts and nothing else. Whoever writes
 // there cannot talk it into reading the workspace (onbehalf.json holds the calendar's secret
 // address) or running anything else: this is enforced here, not asked of the model.
-const SCRIPT = /^\s*node\s+\/opt\/onbehalf\/bin\/(?:freebusy|invite|delivery)\.mjs(?:\s+[^;&|`$<>\\\n]*)?$/;
+const SCRIPT = /^\s*node\s+\/opt\/onbehalf\/bin\/(?:freebusy|invite|delivery|pipeline)\.mjs(?:\s+[^;&|`$<>\\\n]*)?$/;
 const FILE_TOOLS = new Set(['read', 'write', 'edit', 'apply_patch']);
 // The calendar's secret address, or anything shaped like one, never goes out to anyone.
 function leaksCalendar(text, w) {
@@ -127,6 +167,7 @@ export default definePluginEntry({
       const room = isOwnerSession(ctx?.sessionKey) ? `your owner's private chat: talk to ${owner} plainly` : `a room with people other than ${owner}: write as ${me}, ${owner}'s assistant, ${owner} in the third person`;
       const setUp = Boolean(w.owner), ownerRoom = isOwnerSession(ctx?.sessionKey);
       const delivery = ownerRoom ? await deliveryLine() : null;
+      const pipeline = ownerRoom ? await pipelineLines() : null;
       const lines = [
         `[OnBehalf facts, resolved by the system]`,
         setUp ? null : ownerRoom
@@ -135,11 +176,14 @@ export default definePluginEntry({
         `Owner: ${owner}. You sign as: ${me}, ${owner}'s assistant. Owner's time zone: ${tz}.`,
         w.windows ? `Owner's usual windows: ${w.windows}.` : null,
         w.calendar?.ics ? `Owner's calendar: connected (read-only). Free slots: node /opt/onbehalf/bin/freebusy.mjs --from <YYYY-MM-DD> --days <n> --minutes <length>; it prints labels to copy. You never see what is on the calendar, only when the owner is free.` : `Owner's calendar: not connected; use the usual windows and say they are unconfirmed.`,
+        `Owner's meeting preferences: video ${w.video ? `by ${w.video}` : 'not set (ask once, the first time a video call comes up, and save it as "video")'}; default length ${w.meeting_minutes ? `${w.meeting_minutes} min` : 'not set (30 min unless the ask says otherwise)'}; travel buffer for in-person ${w.travel_minutes ? `${w.travel_minutes} min each way` : 'not set (ask once, the first time an in-person meeting comes up)'}.`,
         w.firstMessage ? `First message to a new person: ${w.firstMessage === 'show' ? "show it to the owner first" : 'send it'}.` : null,
         `Owner's language: ${lang}. Write to the owner in it; write to anyone else in the language they write in (the first message to a new person in the owner's language unless you know theirs).`,
         `Today is ${today} (${tz}). The next 14 days: ${next}.${nextLocal ? ` In ${lang}: ${nextLocal}.` : ''} Copy weekdays from these lists; never compute them.`,
+        weeks(now, tz),
         `This room: ${room}.`,
         delivery,
+        pipeline,
       ].filter(Boolean);
       return { prependContext: lines.join('\n') };
     });
@@ -171,7 +215,7 @@ export default definePluginEntry({
       }
       if (guest && event?.toolName === 'exec' && !SCRIPT.test(String(p.command ?? p.cmd ?? ''))) {
         log(`block tool=exec rule="guest-room exec"`);
-        return { block: true, blockReason: 'Not allowed in a room with other people: only node /opt/onbehalf/bin/freebusy.mjs, invite.mjs or delivery.mjs, with plain arguments.' };
+        return { block: true, blockReason: 'Not allowed in a room with other people: only node /opt/onbehalf/bin/freebusy.mjs, invite.mjs, delivery.mjs or pipeline.mjs, with plain arguments.' };
       }
       let text = null;
       if (event?.toolName === 'plow_start_thread') text = p.body;
@@ -191,6 +235,8 @@ export default definePluginEntry({
       log(`block tool=${event.toolName} rule="${hit.rule}" phrase="${hit.phrase}"`);
       return { block: true, blockReason: `Not sent. ${rewriteInstruction(hit, who(ctx?.workspaceDir))}` };
     });
+
+    api.on('after_tool_call', (event) => { recordThread(event); });
 
     // 3. The last door: nothing in the owner's voice reaches a third-party room.
     api.on('message_sending', async (event, ctx) => {

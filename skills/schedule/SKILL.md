@@ -10,6 +10,23 @@ owner's usual windows, whether the first message to a new person is shown first,
 date with the next two weeks and their weekdays. Take weekdays from that list, never compute
 them. If the owner's name is missing there, run the first conversation in `AGENTS.md` first.
 
+## 0. Every step leaves a record
+
+One page per contact, kept by `node /opt/onbehalf/bin/pipeline.mjs` (the facts block lists the
+open ones with what is due). Record what HAPPENED, never what you intend, right after it happens:
+
+- the ask arrives → `set <contact> --contact "Juan" --handle +1… --status waiting_on_us --meeting "coffee, 60 min, in person"`
+- holds created → `--status held --holds "<event id>; <event id>; …"` (every hold and travel block)
+- first text sent → `--status sent --chat <cht_…> --proposed "<the times exactly as sent>"`.
+  The script checks with Plow that it was delivered; if not, it records `unverified` and says so.
+  Tell the owner what it recorded, not what you hoped.
+- they answer → `--status waiting_on_us`; you answer back → `--status waiting_on_them --chat <cht_…>`
+- a nudge sent → `--nudged --note "nudge 1"`
+- booked → `--status confirmed --holds "" --note "Thu Oct 1 12–1pm PT, invite sent"`
+- they decline or stop → `passed` or `do_not_contact`
+
+`next_step` is advice for later (`--next "…"`), never a claim that something happened.
+
 ## 1. Understand the ask
 
 From the owner's private chat: who (name and phone number, E.164), what (lunch, coffee, call,
@@ -24,9 +41,13 @@ given is asked for, never guessed.
   slots inside the owner's hours, each with a `label` to copy and the `date`/`time` to book with.
   Offer two or three of them, copying the labels. You never see what fills the calendar.
 - With the owner's Mac connected instead: read the calendar for the window (`google-workspace` via
-  `owners-mac`), and pick two or three free slots that fit the kind of meeting (lunch is
-  12–1:30, coffee is mornings, calls are anywhere in the windows). Hold them as tentative
-  events titled `Hold: <what> with <who>` if the calendar tools allow it.
+  `owners-mac`) across every calendar the owner shows, and pick exactly three free slots that fit
+  the kind of meeting (lunch is 12–1:30, coffee is mornings, calls are anywhere in the windows).
+  Hold all three: one busy event each, titled `HOLD — <who>`, description `Tentative — no
+  invitation sent`, no attendees, notifications off. For an in-person meeting, also block the
+  owner's travel buffer (the facts say how long) before and after each hold, titled
+  `Travel — <who>`. Fetch each created event, and record every id with `pipeline.mjs set …
+  --status held --holds "…"` before sending anything. Holding is never sending.
 - Without either: pick from the owner's hours and say these are unconfirmed.
 
 Write every slot with the weekday, the date and the zone, and both zones when they differ:
@@ -81,7 +102,13 @@ meeting without your owner's ok.
 - **With the owner's Mac**, book the chosen slot on the owner's calendar with the other person's email if you have it
   (ask for it in the thread: "What email should I send the invite to?"), the place or the
   link, and a title both would recognize.
-- Delete the other holds.
+- For a video meeting, use the owner's stored provider (`video` in the facts): Google Meet is
+  added on the create itself; a personal Zoom room is the link the owner saved. Never pick a
+  provider yourself and never ask twice: if it is not set, ask the owner once, privately, and
+  save it in `onbehalf.json`.
+- Once the invite is verified, delete every hold AND travel block on the contact's page
+  (`pipeline.mjs show <contact>` lists them in `holds`), including the one at the chosen time,
+  then record `--status confirmed --holds ""`. A partial delete stops there and goes to the owner.
 - Check the invite before announcing it: the right date and zone, the place or the link, and
   every guest on it. Then, in the thread, one recap: "Booked: Thu Oct 1, 12–1pm PT at Verve,
   Palo Alto. Invite sent to psalyer@mayfield.com." Only after the tool confirmed it.

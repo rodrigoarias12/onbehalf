@@ -58,20 +58,21 @@ svg.cables{position:absolute;left:0;top:0;width:1600px;height:1062px;overflow:vi
 
 <div class="jaula" style="left:420px;top:40px;width:720px;height:476px">
  <p class="t rot">Sam's container on Plow · one phone number · OpenClaw</p>
- <p class="llaves">Calendar and contacts: through Sam's Mac (Latch), outside the container.</p>
+ <p class="llaves">Calendar: a script reads Sam's read-only calendar link and hands the model free slots only, never what fills the day.</p>
 </div>
 <div class="n" id="privada" style="left:446px;top:84px;width:250px">
  <p class="nm"><span class="ico"><svg viewBox="0 0 16 16"><path d="M2 3h12v8H6l-4 3z" fill="currentColor"/></svg></span>Private room</p>
  <p class="d">Sam and his assistant. Here it talks plainly, in the first person.</p></div>
 <div class="n" id="salas" style="left:446px;top:250px;width:250px">
  <p class="nm"><span class="ico"><svg viewBox="0 0 16 16"><path d="M1 3h9v6H4L1 12z M11 6h4v6l-2-2h-2z" fill="currentColor"/></svg></span>Rooms with others</p>
- <p class="d">One thread per person. Here, always as Sam's assistant.</p></div>
+ <p class="d">One thread per person. Here, always as Sam's assistant, with no access to files.</p></div>
 <div class="n hot" id="onbehalf" style="left:776px;top:150px;width:334px">
  <p class="nm"><span class="ico a"><svg viewBox="0 0 16 16"><rect x="3" y="5" width="10" height="8" rx="2" fill="currentColor"/><circle cx="6" cy="9" r="1" fill="#a0e099"/><circle cx="10" cy="9" r="1" fill="#a0e099"/><rect x="7.3" y="2" width="1.4" height="3" fill="currentColor"/></svg></span>OnBehalf · scheduling assistant</p>
- <p class="d">Skill <b>schedule</b>: understands the ask, finds 2 to 4 real slots, texts, agrees, books, and releases the rest.</p></div>
+ <p class="d">Skill <b>schedule</b>: understands the ask, finds 2 to 4 real free slots, shows Sam the first text, texts as the assistant, agrees a time, sends the invite.</p></div>
 <div class="n" id="guard" style="left:446px;top:350px;width:664px;border-color:var(--green-darker)">
  <p class="nm"><span class="ico a"><svg viewBox="0 0 16 16"><path d="M8 1l6 2.5v4c0 3.6-2.6 6.5-6 7.5-3.4-1-6-3.9-6-7.5v-4z" fill="currentColor"/></svg></span>Voice guard · in the Gateway, outside the model</p>
- <div class="chips"><span class="chip"><b>1</b>Checks the reply and asks for a rewrite</span><span class="chip"><b>2</b>Blocks the send tool</span><span class="chip"><b>3</b>Cancels at the exit door</span></div></div>
+ <div class="chips"><span class="chip"><b>1</b>Checks the reply and asks for a rewrite</span><span class="chip"><b>2</b>Blocks the send tool</span><span class="chip"><b>3</b>Cancels at the exit door</span></div>
+ <p class="d" style="margin-top:8px">Also enforced here: weekdays checked against the real calendar · in rooms with others, no files and only the three scripts run · the calendar link never goes out.</p></div>
 
 <div class="t" style="left:1190px;top:26px">What goes out</div>
 <div class="n" id="msg" style="left:1190px;top:56px;width:354px">
@@ -79,11 +80,11 @@ svg.cables{position:absolute;left:0;top:0;width:1600px;height:1062px;overflow:vi
  <p class="q">Hi Patrick, this is Spruce, Sam's assistant. Sam is free Tue–Fri at noon. Which works?</p></div>
 <div class="n" id="invite" style="left:1190px;top:222px;width:354px">
  <p class="nm"><span class="ico"><svg viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M2 7h12" stroke="currentColor" stroke-width="1.6"/></svg></span>Calendar invite</p>
- <p class="d">Once Patrick picks. The other holds are released.</p></div>
+ <p class="d">Once Patrick picks: an .ics file in the thread that anyone taps to add. A script does the time zones.</p></div>
 <div class="n" id="aviso" style="left:1190px;top:330px;width:354px">
- <p class="nm"><span class="ico"><svg viewBox="0 0 16 16"><path d="M3 8l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>Note to Sam</p>
- <p class="d">One line in his private chat: "Coffee with Patrick: Thu 12–1. Invite sent."</p></div>
-<div class="pill" style="left:1190px;top:430px">Never goes out: "I'm free", "See you then!", "works for me"</div>
+ <p class="nm"><span class="ico"><svg viewBox="0 0 16 16"><path d="M3 8l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>Note to Sam, from the line itself</p>
+ <p class="d">It reads each text's real status: "It reached Patrick", or "It didn't arrive: that number has no iMessage." Sent is not arrived.</p></div>
+<div class="pill" style="left:1190px;top:452px">Never goes out: "I'm free", "See you then!", the calendar link</div>
 
 <div class="sep" style="top:540px"></div>
 
@@ -95,9 +96,9 @@ svg.cables{position:absolute;left:0;top:0;width:1600px;height:1062px;overflow:vi
 <div class="n" id="pilar" style="left:56px;top:690px;width:320px">
  <p class="nm"><span class="ico"><svg viewBox="0 0 16 16"><path d="M2 14V9h3v5zM6.5 14V5h3v9zM11 14V2h3v12z" fill="currentColor"/></svg></span>Pilar · the CPO's assistant</p>
  <p class="d">Reads the backlog and the KPI sheet, with its series.</p></div>
-<div class="n" id="ob2" style="left:56px;top:784px;width:320px">
+<div class="n off" id="ob2" style="left:56px;top:784px;width:320px">
  <p class="nm"><span class="ico a"><svg viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M2 7h12" stroke="currentColor" stroke-width="1.6"/></svg></span>OnBehalf</p>
- <p class="d">Meetings booked and pending, each with its thread.</p></div>
+ <p class="d">Meetings booked and pending, each with its thread. Asked over its own phone line; not yet tested live.</p></div>
 <div class="n off" id="grow" style="left:56px;top:878px;width:320px">
  <p class="nm"><span class="ico"><svg viewBox="0 0 16 16"><path d="M2 12l4-4 3 3 5-6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></span>Grow · YoRobot agent</p>
  <p class="d">Through its chat channel or Agent2Agent. Channel still pending.</p></div>
@@ -125,7 +126,7 @@ cable('sam','privada'); cable('patrick','salas');
 cable('privada','onbehalf'); cable('salas','onbehalf');
 cable('onbehalf','guard',{down:true,dx:0,dx2:220});
 cable('guard','msg',{ya:box('guard').cy-10}); cable('guard','invite'); cable('guard','aviso',{ya:box('guard').cy+10});
-cable('theo','dr'); cable('pilar','dr'); cable('ob2','dr'); cable('grow','dr',{off:true});
+cable('theo','dr'); cable('pilar','dr'); cable('ob2','dr',{off:true}); cable('grow','dr',{off:true});
 cable('dr','video');
 </script>
 </body></html>
