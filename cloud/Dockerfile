@@ -7,7 +7,7 @@
 # anything else).
 #
 # Base pinned by digest: https://gallery.ecr.aws/e1h7x4a2/plow-cloud-agents
-FROM public.ecr.aws/e1h7x4a2/plow-cloud-agents:base-1e73c82c4b3e0c9f76935bc0cc45061875b34aee@sha256:5f8ef7c3762b037420cd8843a767a7ab7e2433b1c8319e7cfe2ad1bdef5dee8a
+FROM public.ecr.aws/e1h7x4a2/plow-cloud-agents:base-771198a9609dcef54d44843e7da5329c17fa51b4@sha256:f1e7c421b97a80f1bd17015f96daceb965f350a241f7edc7e4d856a0e3a6f8f5
 
 ENV AGENT_ID=onbehalf
 ENV AGENT_NAME="OnBehalf"
