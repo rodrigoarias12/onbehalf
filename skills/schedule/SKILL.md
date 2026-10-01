@@ -31,8 +31,10 @@ open ones with what is due). Record what HAPPENED, never what you intend, right 
 
 From the owner's private chat: who (name and phone number, E.164), what (lunch, coffee, call,
 a 30-min intro), how long, where (a place, a video link, "their office"), and by when. One
-question for whatever is missing, all of it in one message. A phone number you were not
-given is asked for, never guessed.
+question for whatever is missing, all of it in one message, and only after looking for it
+yourself (AGENTS.md, "Find it before you ask for it"): a name the owner mentions in passing
+("actually I met Ian") is searched in their Contacts, Messages, Gmail and your Plow threads
+before you ask for a number. A phone number you could not find is asked for, never guessed.
 
 ## 2. Find real slots
 

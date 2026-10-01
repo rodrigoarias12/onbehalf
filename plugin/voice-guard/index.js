@@ -171,12 +171,14 @@ export default definePluginEntry({
       const lines = [
         `[OnBehalf facts, resolved by the system]`,
         setUp ? null : ownerRoom
-          ? `SETUP NOT DONE: this owner has not set you up yet. Whatever they wrote, reply with the welcome message from "First conversation" in AGENTS.md, in the language they wrote in. Do not ask how you can help.`
+          ? `SETUP NOT DONE: this owner has not set you up yet. Whatever they wrote, follow "First conversation" in AGENTS.md: first look on their Mac through Plow Latch for their name, calendars and time zone, then send the welcome asking only what you could not find, in the language they wrote in. Do not ask how you can help.`
           : `Setup is not finished. Never send the welcome here and never ask this person about calendars or settings: say you will check with your owner.`,
         `Owner: ${owner}. You sign as: ${me}, ${owner}'s assistant. Owner's time zone: ${tz}.`,
         w.windows ? `Owner's usual windows: ${w.windows}.` : null,
-        w.calendar?.ics ? `Owner's calendar: connected (read-only). Free slots: node /opt/onbehalf/bin/freebusy.mjs --from <YYYY-MM-DD> --days <n> --minutes <length>; it prints labels to copy. You never see what is on the calendar, only when the owner is free.` : `Owner's calendar: not connected; use the usual windows and say they are unconfirmed.`,
-        `Owner's meeting preferences: video ${w.video ? `by ${w.video}` : 'not set (ask once, the first time a video call comes up, and save it as "video")'}; default length ${w.meeting_minutes ? `${w.meeting_minutes} min` : 'not set (30 min unless the ask says otherwise)'}; travel buffer for in-person ${w.travel_minutes ? `${w.travel_minutes} min each way` : 'not set (ask once, the first time an in-person meeting comes up)'}.`,
+        w.calendar?.mac ? `Owner's calendar: on their Mac through Plow Latch. Read every calendar on every account with google-workspace (owners-mac) for availability; holds and invites go there too, each approved on the Mac.`
+          : w.calendar?.ics ? `Owner's calendar: connected (read-only). Free slots: node /opt/onbehalf/bin/freebusy.mjs --from <YYYY-MM-DD> --days <n> --minutes <length>; it prints labels to copy. You never see what is on the calendar, only when the owner is free.`
+          : `Owner's calendar: not connected; use the usual windows and say they are unconfirmed. If the owner's Mac is connected through Plow Latch, use it instead.`,
+        `Owner's meeting preferences: video ${w.video ? `by ${w.video}` : 'not set (ask once, the first time a video call comes up, and save it as "video"; never offer a default)'}; default length ${w.meeting_minutes ? `${w.meeting_minutes} min` : 'not set (30 min unless the ask says otherwise)'}; travel buffer for in-person ${w.travel_minutes ? `${w.travel_minutes} min each way` : 'not set (ask once, the first time an in-person meeting comes up)'}.`,
         w.firstMessage ? `First message to a new person: ${w.firstMessage === 'show' ? "show it to the owner first" : 'send it'}.` : null,
         `Owner's language: ${lang}. Write to the owner in it; write to anyone else in the language they write in (the first message to a new person in the owner's language unless you know theirs).`,
         `Today is ${today} (${tz}). The next 14 days: ${next}.${nextLocal ? ` In ${lang}: ${nextLocal}.` : ''} Copy weekdays from these lists; never compute them.`,
