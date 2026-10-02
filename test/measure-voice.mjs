@@ -8,10 +8,21 @@ const corpus = JSON.parse(readFileSync(new URL('./voice-corpus.json', import.met
 const who = { owner: 'Sam', assistant: 'Spruce' };
 const pool = async (xs, n, f) => { const out = []; let i = 0; await Promise.all([...Array(n)].map(async () => { while (i < xs.length) { const k = i++; out[k] = await f(xs[k]); } })); return out; };
 const verdict = async (l) => ownerVoice(l) ? { by: 'patterns', owner: true } : ((j) => j ? { by: 'judge', owner: j.owner } : { by: 'none', owner: false })(await judgeVoice(l, who));
+// Release gate: on heldout2 (never used for tuning) the guard must stop at least MIN_OWNER of 60 owner
+// lines and pass at least MIN_ASSISTANT of 60 assistant lines, or this exits 1 and nothing is promoted.
+const MIN_OWNER = Number(process.env.MIN_OWNER || 55), MIN_ASSISTANT = Number(process.env.MIN_ASSISTANT || 59);
+let gate = true;
 for (const [name, set] of Object.entries(corpus)) {
   if (name.startsWith('_')) continue;
   const o = await pool(set.owner, 4, verdict), a = await pool(set.assistant, 4, verdict);
   console.log(`${name}: owner voice stopped ${o.filter((v) => v.owner).length}/${o.length} (patterns alone ${o.filter((v) => v.by === 'patterns').length}) · assistant lines passed ${a.filter((v) => !v.owner).length}/${a.length} · judge unavailable ${[...o, ...a].filter((v) => v.by === 'none').length}`);
   set.owner.forEach((l, k) => !o[k].owner && console.log(`  missed: ${l}`));
   set.assistant.forEach((l, k) => a[k].owner && console.log(`  false alarm: ${l}`));
+  if (name === 'heldout2') {
+    const stopped = o.filter((v) => v.owner).length, passed = a.filter((v) => !v.owner).length;
+    if (stopped < MIN_OWNER || passed < MIN_ASSISTANT) { gate = false; console.log(`GATE FAILED: heldout2 needs >= ${MIN_OWNER}/60 stopped and >= ${MIN_ASSISTANT}/60 passed`); }
+  }
 }
+if (!process.env.PLOW_AGENT_TOKEN) { console.log('GATE FAILED: no PLOW_AGENT_TOKEN, the judge was never asked'); gate = false; }
+console.log(gate ? 'gate: passed' : 'gate: FAILED');
+process.exit(gate ? 0 : 1);

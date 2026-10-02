@@ -1,0 +1,19 @@
+name: eval
+# The voice guard as it runs on Plow (patterns, then Plow's model) against lines written by an agent
+# that never saw the code. Required before promote (bin/promote.mjs checks this run for the commit).
+# Needs the repository secret PLOW_AGENT_TOKEN: an agent credential with llm:chat (about 250 calls,
+# well under US$0.25 per run).
+on:
+  push: { branches: [main] }
+  workflow_dispatch:
+jobs:
+  voice-judge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node test/measure-voice.mjs
+        env:
+          PLOW_AGENT_TOKEN: ${{ secrets.PLOW_AGENT_TOKEN }}
+          PLOW_API_BASE: https://api.plow.co

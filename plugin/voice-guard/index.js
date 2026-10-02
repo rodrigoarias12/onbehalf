@@ -21,6 +21,7 @@ import { join } from 'node:path';
 import { ownerVoice, rewriteInstruction, isOwnerSession, wrongWeekday, dateInstruction } from './voice.js';
 import { deliveryFacts } from './delivery.js';
 import { judgeVoice } from './judge.js';
+import { unprovenClaim, claimInstruction, STOP, MONEY, DEFAULTS, defaultInstruction, ownerTask, holdingReply } from './claims.js';
 
 // Shipped inside OpenClaw's own dist/extensions (see cloud/Dockerfile), so the SDK is two levels up.
 import { definePluginEntry } from '../../plugin-sdk/plugin-entry.js';
@@ -89,6 +90,53 @@ function weeks(now, tz) {
   return `This week: ${day(0)} to ${day(6)}. Next week: ${day(7)} to ${day(13)}. "Next week" means only the second range: for it, freebusy.mjs --from ${iso(new Date(mon.getTime() + 7 * 864e5))} --days 5.`;
 }
 
+// What this conversation has actually done, from tool results, for the claim check. Per session.
+const evidence = new Map();
+const proof = (key) => evidence.get(key) || {};
+function noteEvidence(event, ctx) {
+  if (event?.error) return;
+  const key = ctx?.sessionKey || 'unknown', ev = { ...proof(key) };
+  const name = String(event?.toolName || ''), cmd = String(event?.params?.command ?? '');
+  const out = JSON.stringify(event?.result ?? '');
+  if (name === 'exec' && /\binvite\.mjs\b/.test(cmd) && /\\?"ok\\?":\s*true/.test(out)) ev.invite = Date.now();
+  // A calendar write on the owner's Mac (Latch's google-workspace): a create/insert/update that returned.
+  if (/calendar|event/i.test(name) && /creat|insert|update|patch|add/i.test(name + JSON.stringify(event?.params ?? '')) && !/error/i.test(out.slice(0, 200))) ev.calendar = Date.now();
+  evidence.set(key, ev);
+}
+async function claimsOf(text, key) {
+  const ev = proof(key);
+  // A page confirmed in the last half hour also proves a booking (the owner relayed it, or a guest room did).
+  try {
+    const { list } = await import(`${process.env.ONBEHALF_BIN || '/opt/onbehalf/bin'}/pipeline.mjs`);
+    if (list().contacts.some((c) => c.status === 'confirmed' && c.invite)) ev.confirmed = true;
+  } catch { /* no pipeline: session evidence only */ }
+  return unprovenClaim(text, ev) || ownerTask(text, who().owner);
+}
+
+// A guest wrote. Two things are recorded by code, never left to the model: "stop texting me" (the
+// contact becomes do_not_contact and is never texted again) and a money question (it stays open in
+// the pipeline until the owner answers it; a red-team run lost a SAFE question in one turn).
+async function guestWrote(event, ctx) {
+  const text = String(event?.content ?? '');
+  const chat = ctx?.conversationId;
+  if (!text || !chat) return;
+  const stop = STOP.test(text), money = MONEY.test(text);
+  if (!stop && !money) return;
+  try {
+    const { set, list, slugOf } = await import(`${process.env.ONBEHALF_BIN || '/opt/onbehalf/bin'}/pipeline.mjs`);
+    const page = list().contacts.find((c) => c.chat === chat);
+    const slug = page?.slug || slugOf(String(event?.from || chat));
+    if (stop) await set(slug, { chat, status: 'do_not_contact', note: `asked not to be texted: "${text.slice(0, 80)}"` });
+    if (money) await set(slug, { chat, open: text.slice(0, 160), note: 'a question for the owner (money), kept open' });
+  } catch (e) { log(`pipeline guest note failed: ${e.message}`); }
+}
+async function stopped(chat) {
+  try {
+    const { list } = await import(`${process.env.ONBEHALF_BIN || '/opt/onbehalf/bin'}/pipeline.mjs`);
+    return list().contacts.some((c) => c.chat === chat && c.status === 'do_not_contact');
+  } catch { return false; }
+}
+
 // A thread the assistant opened is a contact in the pipeline, recorded by the system, not left to
 // the model's memory. 45 s later Plow says whether the first text arrived: "sent" or "unverified".
 async function recordThread(event) {
@@ -113,9 +161,12 @@ async function pipelineLines() {
     const r = list();
     if (!r.contacts.length) return null;
     const open = r.contacts.filter((c) => !['confirmed', 'passed', 'do_not_contact'].includes(c.status));
-    if (!open.length) return null;
+    const stoppedNow = r.contacts.filter((c) => c.status === 'do_not_contact');
+    if (!open.length && !r.open_questions.length && !stoppedNow.length) return null;
     return [`Scheduling pipeline (from pipeline/, computed; update it with pipeline.mjs set):`,
-      ...open.map((c) => `- ${c.contact}: ${c.status}${c.meeting ? `, ${c.meeting}` : ''} — ${c.say}.${c.nudge_due ? ' DUE NOW.' : ''}${c.hand_back ? ' DUE NOW: ask the owner.' : ''}`)].join('\n');
+      ...open.map((c) => `- ${c.contact}: ${c.status}${c.meeting ? `, ${c.meeting}` : ''}${c.chosen ? `, picked ${c.chosen}` : ''} — ${c.say}.${c.nudge_due ? ' DUE NOW.' : ''}${c.hand_back ? ' DUE NOW: ask the owner.' : ''}`),
+      ...(r.open_questions.length ? [`Questions only the owner can answer, still open (bring each up until answered; close with pipeline.mjs set <contact> --close <n>):`, ...r.open_questions.map((q) => `- ${q}`)] : []),
+      ...stoppedNow.map((c) => `- ${c.contact} asked not to be texted. Never text them; tell the owner once.`)].join('\n');
   } catch { return null; }
 }
 
@@ -148,6 +199,7 @@ export default definePluginEntry({
     // Learn the owner's private rooms: a turn in the owner's main session, from the owner.
     api.on('message_received', (event, ctx) => {
       if (ctx?.sessionKey && isOwnerSession(ctx.sessionKey) && ctx.conversationId) ownerRooms.add(`${ctx.channelId}:${ctx.conversationId}`);
+      else if (ctx?.sessionKey) guestWrote(event, ctx);
     });
 
     // 0. Facts the model should not have to look up or compute: who is who, the room it is in,
@@ -181,6 +233,7 @@ export default definePluginEntry({
         `Owner's meeting preferences: video ${w.video ? `by ${w.video}` : 'not set (ask once, the first time a video call comes up, and save it as "video"; never offer a default)'}; default length ${w.meeting_minutes ? `${w.meeting_minutes} min` : 'not set (30 min unless the ask says otherwise)'}; travel buffer for in-person ${w.travel_minutes ? `${w.travel_minutes} min each way` : 'not set (ask once, the first time an in-person meeting comes up)'}.`,
         w.firstMessage ? `First message to a new person: ${w.firstMessage === 'show' ? "show it to the owner first" : 'send it'}.` : null,
         `Owner's language: ${lang}. Write to the owner in it; write to anyone else in the language they write in (the first message to a new person in the owner's language unless you know theirs).`,
+        `Now: ${now.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz })} (${tz}). Never offer or accept a time that has passed. To check one proposed time: freebusy.mjs --check "YYYY-MM-DD HH:MM" --minutes <n> (it says free, busy, outside_hours or past; outside the owner's hours is never "booked").`,
         `Today is ${today} (${tz}). The next 14 days: ${next}.${nextLocal ? ` In ${lang}: ${nextLocal}.` : ''} Copy weekdays from these lists; never compute them.`,
         weeks(now, tz),
         `This room: ${room}.`,
@@ -192,6 +245,20 @@ export default definePluginEntry({
 
     // 1. The reply of a turn that runs in someone else's room.
     api.on('before_agent_finalize', async (event, ctx) => {
+      // A claim without proof, in every room: the owner acts on "booked" as much as a guest does.
+      const claim = await claimsOf(event?.lastAssistantMessage, ctx?.sessionKey);
+      if (claim) {
+        log(`revise session=${ctx?.sessionKey} rule="unproven ${claim.kind}" phrase="${claim.phrase}"`);
+        const instruction = claimInstruction(claim);
+        return { action: 'revise', reason: instruction, retry: { instruction, idempotencyKey: 'onbehalf-claim', maxAttempts: 2 } };
+      }
+      // A default offered on the owner's behalf (Sam's error #7), in the owner's own chat.
+      const dflt = isOwnerSession(ctx?.sessionKey) && String(event?.lastAssistantMessage ?? '').match(DEFAULTS);
+      if (dflt) {
+        log(`revise session=${ctx?.sessionKey} rule="default offered" phrase="${dflt[0]}"`);
+        const instruction = defaultInstruction(dflt[0]);
+        return { action: 'revise', reason: instruction, retry: { instruction, idempotencyKey: 'onbehalf-default', maxAttempts: 2 } };
+      }
       // Dates are checked in every room, the owner's included: a wrong weekday misleads anyone.
       const bad = wrongWeekday(event?.lastAssistantMessage);
       if (bad) {
@@ -226,6 +293,13 @@ export default definePluginEntry({
         if (process.env.ONBEHALF_GUARD_ALL !== '1' && (p.target === 'plow-owner' || p.to === 'plow-owner')) return;
         text = p.message ?? p.text ?? p.body;
       }
+      const target = p.target ?? p.to;
+      if (event?.toolName === 'message' && target && target !== 'plow-owner' && await stopped(target)) {
+        log(`block tool=message rule="do_not_contact" to=${target}`);
+        return { block: true, blockReason: 'Not sent: this person asked not to be texted. Tell your owner instead; never text them again unless the owner says they asked to resume.' };
+      }
+      const claim = text ? await claimsOf(text, ctx?.sessionKey) : null;
+      if (claim) { log(`block tool=${event.toolName} rule="unproven ${claim.kind}"`); return { block: true, blockReason: `Not sent. ${claimInstruction(claim)}` }; }
       if (leaksCalendar(text, who(ctx?.workspaceDir))) {
         log(`block tool=${event.toolName} rule="calendar address"`);
         return { block: true, blockReason: "Not sent: it contains the calendar's secret address, which never leaves the owner's private chat. Remove it." };
@@ -238,10 +312,30 @@ export default definePluginEntry({
       return { block: true, blockReason: `Not sent. ${rewriteInstruction(hit, who(ctx?.workspaceDir))}` };
     });
 
-    api.on('after_tool_call', (event) => { recordThread(event); });
+    api.on('after_tool_call', (event, ctx) => { noteEvidence(event, ctx); recordThread(event); });
 
     // 3. The last door: nothing in the owner's voice reaches a third-party room.
     api.on('message_sending', async (event, ctx) => {
+      // The last door for claims: a revise asked at finalize does not always get its second pass (a
+      // turn with tools can end right after it). A guest gets a true holding reply instead of the
+      // claim, and the withheld text waits for the owner in the pipeline; the owner gets the
+      // message with a correction under it.
+      const claimHit = await claimsOf(event?.content, ctx?.sessionKey ?? `room:${ctx?.conversationId}`);
+      if (claimHit) {
+        const third = await isThirdPartyRoom(ctx?.channelId, ctx?.conversationId ?? event?.to);
+        const owner = who(ctx?.workspaceDir).owner || 'the owner';
+        log(`replace channel=${ctx?.channelId} to=${ctx?.conversationId ?? event?.to} rule="unproven ${claimHit.kind}" phrase="${claimHit.phrase}"`);
+        if (third) {
+          try {
+            const { set, list, slugOf } = await import(`${process.env.ONBEHALF_BIN || '/opt/onbehalf/bin'}/pipeline.mjs`);
+            const chat = ctx?.conversationId ?? event?.to;
+            const page = list().contacts.find((c) => c.chat === chat);
+            await set(page?.slug || slugOf(String(chat)), { chat, open: `withheld (not true yet): "${String(event.content).slice(0, 120)}"` });
+          } catch { /* the reply below still goes out */ }
+          return { content: holdingReply(String(event.content), owner) };
+        }
+        return { content: `${event.content}\n\n(Correction from the system: "${claimHit.phrase}" is not true yet. ${claimInstruction(claimHit).split('. Say only')[0].replace(/^You wrote "[^"]*", but /, '')}.)` };
+      }
       if (leaksCalendar(event?.content, who(ctx?.workspaceDir))) {
         const third = await isThirdPartyRoom(ctx?.channelId, ctx?.conversationId ?? event?.to);
         if (third) { log(`cancel rule="calendar address"`); return { cancel: true, cancelReason: "onbehalf: the calendar's secret address never leaves the owner's private chat" }; }

@@ -14,3 +14,4 @@ jobs:
       - run: node test/guard.test.mjs
       - run: node test/voice-corpus.test.mjs
       - run: node test/pipeline.test.mjs
+      - run: node test/regressions.test.mjs

@@ -24,7 +24,10 @@ const DEFAULTS = { tz: cfg.timezone, lang: cfg.language, windows: cfg.hours, wee
 const one = (k, d) => { const i = argv.indexOf(`--${k}`); return i >= 0 ? argv[i + 1] : (DEFAULTS[k] ?? d); };
 const out = (o) => { console.log(JSON.stringify(o)); process.exit(o.ok === false ? 1 : 0); };
 const tz = one('tz', 'UTC'), lang = one('lang', 'en-US'), minutes = Number(one('minutes', 60));
-const fromDate = one('from'), days = Number(one('days', 5));
+// --check "YYYY-MM-DD HH:MM": is that one time free? Answers free / busy / outside_hours / past, so
+// the model never calls a time outside the owner's hours "booked" (a real red-team reply did).
+const check = one('check');
+const fromDate = one('from') || (typeof check === 'string' ? check.slice(0, 10) : undefined), days = check ? 1 : Number(one('days', 5));
 // Slots already past are dropped. ONBEHALF_NOW pins "now" for tests, so they do not expire.
 const NOW = process.env.ONBEHALF_NOW ? new Date(process.env.ONBEHALF_NOW) : new Date();
 const windows = (one('windows', '09:00-18:00')).split(',').map((w) => w.trim().split('-').map((t) => t.split(':').map(Number)));
@@ -133,6 +136,18 @@ const busy = events.flatMap((e) => occurrences(e, rangeStart, rangeEnd).filter((
 
 const fmtDay = (d, l) => d.toLocaleDateString(l, { weekday: 'long', day: 'numeric', month: 'long', timeZone: tz });
 const fmtTime = (d, l) => d.toLocaleTimeString(l, { hour: '2-digit', minute: '2-digit', timeZone: tz, hourCycle: /^en/.test(l) ? 'h12' : 'h23' });
+if (check) {
+  const m = String(check).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})$/);
+  if (!m) out({ ok: false, error: '--check must be "YYYY-MM-DD HH:MM" (24 h, in the owner\'s time zone)' });
+  const [, y, mo, d, h, mi] = m.map(Number);
+  const s = zonedToUtc(y, mo, d, h, mi, 0, tz), e = new Date(s.getTime() + minutes * 60000);
+  const dow = new Date(Date.UTC(y, mo - 1, d)).getUTCDay();
+  const inWindow = weekdays.has(dow) && windows.some(([[h1, m1], [h2, m2]]) => s >= zonedToUtc(y, mo, d, h1, m1 || 0, 0, tz) && e <= zonedToUtc(y, mo, d, h2, m2 || 0, 0, tz));
+  const clash = busy.some((b) => b.start < e && b.end > s);
+  const verdict = s <= NOW ? 'past' : clash ? 'busy' : !inWindow ? 'outside_hours' : 'free';
+  const say = { free: 'free', busy: 'not available then (say only that, never why)', outside_hours: "outside the owner's usual hours: say exactly that; it is NOT a booked meeting, never call it \"booked\"", past: 'that time has already passed' }[verdict];
+  out({ ok: true, time: `${fmtDay(s, lang)}, ${fmtTime(s, lang)}–${fmtTime(e, lang)}`, timezone: tz, verdict, free: verdict === 'free', say });
+}
 const free = [];
 for (let i = 0; i < days; i++) {
   const dayUtc = new Date(Date.UTC(fy, fm - 1, fd) + i * 864e5); const y = dayUtc.getUTCFullYear(), mo = dayUtc.getUTCMonth() + 1, d = dayUtc.getUTCDate();

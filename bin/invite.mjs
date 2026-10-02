@@ -16,6 +16,10 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 const argv = process.argv.slice(2);
+// Every flag this script reads. An unknown one used to be ignored in silence: the red-team run passed
+// --recurring, --video and --email, got a plain one-off file, and told the guest it was all set.
+const KNOWN = new Set(['title', 'what', 'date', 'time', 'minutes', 'tz', 'where', 'organizer', 'attendee', 'out', 'contact']);
+const unknown = argv.filter((a) => a.startsWith('--') && !KNOWN.has(a.slice(2)));
 const one = (k) => { const i = argv.indexOf(`--${k}`); return i >= 0 ? argv[i + 1] : undefined; };
 const many = (k) => argv.flatMap((a, i) => (a === `--${k}` ? [argv[i + 1]] : []));
 const fail = (msg) => { console.log(JSON.stringify({ ok: false, error: msg })); process.exit(1); };
@@ -27,11 +31,26 @@ try { cfg = JSON.parse(readFileSync(process.env.ONBEHALF_CONFIG || '/var/lib/plo
 const title = one('title') || one('what'), date = one('date'), time = one('time'), tz = one('tz') || cfg.timezone || 'UTC';
 const minutes = Number(one('minutes') || 60), where = one('where') || '', organizer = one('organizer') || cfg.owner || '';
 const out = one('out') || process.env.ONBEHALF_INVITES || '/var/lib/plow/workspace/invites';
+if (unknown.length) fail(`unknown flag ${unknown.join(', ')}: this script makes ONE single event with an optional place and attendees. It cannot make a recurring series, a video link or send email; say so instead of claiming it.`);
 if (!title) fail('--title is required');
 if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) fail('--date must be YYYY-MM-DD');
 if (!/^\d{1,2}:\d{2}$/.test(time || '')) fail('--time must be HH:MM (24 h, in --tz)');
 if (!(minutes > 0 && minutes <= 24 * 60)) fail('--minutes must be between 1 and 1440');
 try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); } catch { fail(`unknown time zone: ${tz}`); }
+
+// No invite for a time nobody picked. The red-team run booked Ian's weekly 1:1 and Juan's coffee
+// before either of them had answered. The pipeline page must hold the slot that was chosen, and by
+// whom; this script books that slot and nothing else, then writes the file back on the page.
+const contact = one('contact');
+if (!contact) fail('--contact is required: the person on the pipeline page whose chosen slot this books');
+const { resolve: findPage, set: setPage } = await import('./pipeline.mjs');
+const slug = findPage(contact);
+const { readFileSync: rf, existsSync: ex } = await import('node:fs');
+const pagePath = join(process.env.ONBEHALF_WORKSPACE || '/var/lib/plow/workspace', 'pipeline', `${slug}.md`);
+const chosen = ex(pagePath) ? (rf(pagePath, 'utf8').match(/^chosen: "([^"]*)"$/m) || [])[1] : undefined;
+const wanted = `${date} ${time.padStart(5, '0')}`;
+if (!chosen) fail(`no slot has been chosen for ${contact}. Book only after they (or the owner) pick one, then record it: pipeline.mjs set ${contact} --chosen "${wanted}" --chosen-by guest|owner`);
+if (chosen !== wanted) fail(`${contact} picked ${chosen}, not ${wanted}. Book the slot that was picked.`);
 
 // Wall-clock time in tz -> UTC instant, without a library: guess, measure the offset, correct.
 function zonedToUtc(y, mo, d, h, mi, zone) {
@@ -65,8 +84,10 @@ const lines = [
 ].map(fold);
 
 mkdirSync(out, { recursive: true });
+// (the page is updated after the file exists, below)
 const file = join(out, `${date}-${time.replace(':', '')}-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40)}.ics`);
 writeFileSync(file, lines.join('\r\n') + '\r\n');
+await setPage(slug, { invite: file, note: `invite file made for ${wanted}` });
 
 const inZone = (dt, zone) => dt.toLocaleString('en-US', { timeZone: zone, weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
 console.log(JSON.stringify({

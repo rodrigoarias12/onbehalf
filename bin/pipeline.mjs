@@ -19,7 +19,7 @@ import { mkdirSync, readFileSync, readdirSync, writeFileSync, existsSync } from 
 import { join } from 'node:path';
 
 export const STATUSES = ['new', 'waiting_on_us', 'held', 'sent', 'waiting_on_them', 'confirmed', 'passed', 'do_not_contact', 'unverified'];
-const FIELDS = ['contact', 'handle', 'chat', 'status', 'meeting', 'proposed', 'holds', 'next_step', 'nudges', 'updated'];
+const FIELDS = ['contact', 'handle', 'chat', 'status', 'meeting', 'proposed', 'chosen', 'chosen_by', 'invite', 'holds', 'open', 'next_step', 'nudges', 'updated'];
 const NEEDS_DELIVERY = new Set(['sent', 'waiting_on_them']);
 const NUDGE_AFTER_H = [24, 48]; // two nudges, then back to the owner
 
@@ -66,9 +66,9 @@ export function list(now = Date.now()) {
   if (!existsSync(dir())) return { contacts: [], waiting_on_owner: 0, nudges_due: 0 };
   const contacts = readdirSync(dir()).filter((f) => f.endsWith('.md')).map((f) => {
     const slug = f.slice(0, -3), page = read(slug);
-    return { slug, contact: page.contact || slug, status: page.status, meeting: page.meeting || '', proposed: page.proposed || '', next_step: page.next_step || '', ...due(page, now) };
+    return { slug, contact: page.contact || slug, chat: page.chat || '', status: page.status, meeting: page.meeting || '', proposed: page.proposed || '', chosen: page.chosen || '', invite: page.invite || '', open: page.open || [], next_step: page.next_step || '', ...due(page, now) };
   });
-  return { contacts, waiting_on_owner: contacts.filter((c) => c.on_owner).length, nudges_due: contacts.filter((c) => c.nudge_due).length };
+  return { contacts, waiting_on_owner: contacts.filter((c) => c.on_owner || c.open.length).length, nudges_due: contacts.filter((c) => c.nudge_due).length, open_questions: contacts.flatMap((c) => c.open.map((q) => `${c.contact}: ${q}`)) };
 }
 
 async function delivered(chat) {
@@ -91,7 +91,17 @@ export function resolve(who, handle) {
 
 export async function set(slug, opts, { now = Date.now(), checkDelivery = delivered } = {}) {
   const page = read(slug) || { contact: opts.contact || slug, log: '' };
-  for (const k of ['contact', 'handle', 'chat', 'meeting', 'proposed', 'holds']) if (opts[k] !== undefined) page[k] = opts[k];
+  for (const k of ['contact', 'handle', 'chat', 'meeting', 'proposed', 'holds', 'invite']) if (opts[k] !== undefined) page[k] = opts[k];
+  // The slot the guest (or the owner) actually picked, "YYYY-MM-DD HH:MM": invite.mjs books only this.
+  if (opts.chosen !== undefined) {
+    const c = String(opts.chosen).match(/^(\d{4}-\d{2}-\d{2})[ T](\d{1,2}):(\d{2})$/);
+    if (!c) return { ok: false, error: '--chosen must be "YYYY-MM-DD HH:MM", the exact slot that was picked' };
+    if (!['guest', 'owner'].includes(opts['chosen-by'])) return { ok: false, error: '--chosen needs --chosen-by guest|owner: who picked it, in their own words in the thread' };
+    page.chosen = `${c[1]} ${c[2].padStart(2, '0')}:${c[3]}`; page.chosen_by = opts['chosen-by'];
+  }
+  // Questions that are not a time or a place (money, intros, favors) stay open until the owner answers.
+  if (opts.open) page.open = [...(page.open || []), String(opts.open).slice(0, 200)];
+  if (opts.close) page.open = (page.open || []).filter((q, i) => String(i + 1) !== String(opts.close) && !q.toLowerCase().includes(String(opts.close).toLowerCase()));
   if (opts.next !== undefined) page.next_step = opts.next;
   let status = opts.status, why = '';
   if (status !== undefined && !STATUSES.includes(status)) return { ok: false, error: `unknown status "${status}"; one of ${STATUSES.join(', ')}` };

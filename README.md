@@ -83,3 +83,17 @@ booked, the ones pending, and anything the guard made it rewrite, each with its 
 ## License
 
 MIT.
+
+## Releasing
+
+An image reaches the one-click pin only through `node release/promote.mjs <commit>`, which refuses
+unless, for that exact commit, three GitHub workflows passed:
+
+- **test**: every deterministic test, including `test/regressions.json`, the real incidents (Sam's
+  own install, a red-team run) replayed against the Gateway hooks and the scripts;
+- **eval**: the voice guard against Plow's model on lines written by an agent that never saw the
+  code (`test/voice-corpus.json`, heldout2), at least 55/60 owner lines stopped and 59/60 assistant
+  lines passed. Needs the repository secret `PLOW_AGENT_TOKEN`;
+- **image**: the build, whose log names the digest that gets promoted.
+
+A new incident goes into `test/regressions.json` before its fix.

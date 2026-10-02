@@ -80,8 +80,12 @@ cannot send them.
 
 ## 4. The back and forth
 
-Replies in that thread run in that room. Keep answering there, as the assistant: confirm the
-slot they pick, offer the next ones if none fit, ask the owner privately for anything that is
+Replies in that thread run in that room. Keep answering there, as the assistant. When they
+propose their own time, check it first: `node /opt/onbehalf/bin/freebusy.mjs --check "YYYY-MM-DD
+HH:MM" --minutes <n>` says free, busy, outside_hours or past; outside the owner's hours is "Sam's
+hours are …", never "booked". When they pick one, record it before anything else:
+`pipeline.mjs set <contact> --chosen "YYYY-MM-DD HH:MM" --chosen-by guest` (or `owner`, when the
+owner picked it himself). Nothing is booked until then, and you never say it is. Offer the next ones if none fit, ask the owner privately for anything that is
 not a time or a place. Your owner may write in the same thread; that is them, not you, and
 you never answer in their name.
 
@@ -95,9 +99,12 @@ meeting without your owner's ok.
 ## 6. Book it and report
 
 - **Without the owner's Mac** (no calendar tools), the invite is a file. Run
-  `node /opt/onbehalf/bin/invite.mjs --title "Lunch: Sam / Patrick" --date 2026-10-01 --time 12:00
-  --minutes 60 --tz <the owner's zone> --where "<place or link>" --organizer "<owner>"
-  --attendee "<Name> <email>"` (the attendee only if you have the email). It prints JSON with
+  `node /opt/onbehalf/bin/invite.mjs --contact Patrick --title "Lunch: Sam / Patrick" --date
+  2026-10-01 --time 12:00 --minutes 60 --tz <the owner's zone> --where "<place or link>"
+  --organizer "<owner>" --attendee "<Name> <email>"` (the attendee only if you have the email).
+  It books only the slot recorded as chosen for that contact, and it makes ONE single event: no
+  recurring series, no video link, no email. If a weekly series or a Zoom link was asked for, say
+  you cannot make it here; never claim it. It prints JSON with
   `when` and `media_line`. Reply in the thread with the one-line recap using `when` exactly as
   printed, then `media_line` on its own line: the file arrives in the thread and both people tap
   it to add the meeting. Never type the time yourself in the recap; copy `when`.
