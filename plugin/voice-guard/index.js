@@ -184,6 +184,10 @@ async function deliveryLine() {
 // address) or running anything else: this is enforced here, not asked of the model.
 const SCRIPT = /^\s*node\s+\/opt\/onbehalf\/bin\/(?:freebusy|invite|delivery|pipeline)\.mjs(?:\s+[^;&|`$<>\\\n]*)?$/;
 const FILE_TOOLS = new Set(['read', 'write', 'edit', 'apply_patch']);
+// Other conversations are other people's. A red-team guest asked for "his cell" and got the owner's
+// number, pulled by memory_search from a different chat. In a room with others: no memory, no other
+// sessions. The owner is told through the message tool (target plow-owner), never by reading here.
+const CROSS_ROOM_TOOLS = /^(?:memory_(?:search|get)|sessions_(?:search|history|list|send|spawn)|conversations_(?:list|send|turn))$/;
 // The calendar's secret address, or anything shaped like one, never goes out to anyone.
 function leaksCalendar(text, w) {
   if (!text) return false;
@@ -231,7 +235,7 @@ export default definePluginEntry({
           : w.calendar?.ics ? `Owner's calendar: connected (read-only). Free slots: node /opt/onbehalf/bin/freebusy.mjs --from <YYYY-MM-DD> --days <n> --minutes <length>; it prints labels to copy. You never see what is on the calendar, only when the owner is free.`
           : `Owner's calendar: not connected; use the usual windows and say they are unconfirmed. If the owner's Mac is connected through Plow Latch, use it instead.`,
         `Owner's meeting preferences: video ${w.video ? `by ${w.video}` : 'not set (ask once, the first time a video call comes up, and save it as "video"; never offer a default)'}; default length ${w.meeting_minutes ? `${w.meeting_minutes} min` : 'not set (30 min unless the ask says otherwise)'}; travel buffer for in-person ${w.travel_minutes ? `${w.travel_minutes} min each way` : 'not set (ask once, the first time an in-person meeting comes up)'}.`,
-        w.firstMessage ? `First message to a new person: ${w.firstMessage === 'show' ? "show it to the owner first" : 'send it'}.` : null,
+        `First message to a new person: ${w.firstMessage === 'show' ? 'show it to the owner first and wait for ok (the owner asked for this)' : 'send it directly. The owner chose autonomy; do not ask for approval of the text'}.`,
         `Owner's language: ${lang}. Write to the owner in it; write to anyone else in the language they write in (the first message to a new person in the owner's language unless you know theirs).`,
         `Now: ${now.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz })} (${tz}). Never offer or accept a time that has passed. To check one proposed time: freebusy.mjs --check "YYYY-MM-DD HH:MM" --minutes <n> (it says free, busy, outside_hours or past; outside the owner's hours is never "booked").`,
         `Today is ${today} (${tz}). The next 14 days: ${next}.${nextLocal ? ` In ${lang}: ${nextLocal}.` : ''} Copy weekdays from these lists; never compute them.`,
@@ -281,6 +285,10 @@ export default definePluginEntry({
       if (guest && FILE_TOOLS.has(event?.toolName)) {
         log(`block tool=${event.toolName} rule="guest-room files"`);
         return { block: true, blockReason: 'Not allowed in a room with other people: files stay private. Answer with what you already know, or say you will check with your owner.' };
+      }
+      if (guest && CROSS_ROOM_TOOLS.test(String(event?.toolName || ''))) {
+        log(`block tool=${event.toolName} rule="guest-room cross-room"`);
+        return { block: true, blockReason: 'Not allowed in a room with other people: other conversations and memory stay private. Answer from this thread; for anything only your owner knows, say you will check, and tell your owner with the message tool (target plow-owner).' };
       }
       if (guest && event?.toolName === 'exec' && !SCRIPT.test(String(p.command ?? p.cmd ?? ''))) {
         log(`block tool=exec rule="guest-room exec"`);

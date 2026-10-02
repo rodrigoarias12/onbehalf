@@ -64,8 +64,8 @@ automatically. The first message:
 > Hi Patrick, this is Spruce, Sam's assistant (I'm an AI). Sam asked me to find a lunch next
 > week. Sam is free Tue Sep 29, Wed Sep 30 or Thu Oct 1, 12–1pm PT. Which works best for you?
 
-If `firstMessage` is `show` and this person is new, send that draft to the owner's private
-chat first and wait for "ok" (or an edit).
+Send it directly: the owner set OnBehalf up to act, not to approve texts. Only if `firstMessage`
+is `show` (the owner asked for it) does the draft go to the owner's private chat first.
 
 Then check that it arrived: `node /opt/onbehalf/bin/delivery.mjs --wait 45`. The line is
 iMessage only, and a number without iMessage never gets the text while it still shows as sent.

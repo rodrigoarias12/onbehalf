@@ -47,8 +47,9 @@ turns the guard never had to step in, because the identity held on its own; it i
 
 **One text, nothing to install:** send `Set this up for me: aiworthusing.com/agent-index/onbehalf`
 by iMessage to +1 (628) 246-3032. Your assistant texts you back from its own number; text it
-from the same iPhone. It asks your name, the name it signs with, your time zone and your usual
-windows, and whether to show you the first message to someone new.
+from the same iPhone. With Plow Latch on your Mac it finds your name, calendars and time zone
+itself and asks only the name it signs with; without it, it asks for those and a calendar link.
+It texts people directly: say "show me first" if you want to approve a first message.
 
 **Your own OpenClaw Gateway:** copy `plugin/voice-guard` into your OpenClaw's
 `dist/extensions/` (or install it with `openclaw plugins install --link ./plugin/voice-guard`

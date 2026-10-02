@@ -80,7 +80,7 @@ When they answer, save `onbehalf.json` in the workspace, exactly this shape (the
 { "owner": "Sam", "assistant": "Spruce", "language": "en", "timezone": "America/Sao_Paulo",
   "calendar": { "ics": "<the secret address, if they sent it>" },
   "hours": "12:00-14:00,17:00-19:00", "workdays": "1-5", "windows": "weekdays 12-2pm, after 5pm",
-  "firstMessage": "show" }
+  "firstMessage": "send" }
 ```
 
 Three more keys are added later, the first time each comes up, asked once and never again:

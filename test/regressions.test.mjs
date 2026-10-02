@@ -69,6 +69,13 @@ for (const c of cases.last_door) {
 }
 delete process.env.ONBEHALF_OWNER_ROOMS;
 
+// Tools a room with other people must not reach (other conversations, memory), and what stays allowed.
+for (const c of cases.tools) {
+  const r = await hooks.before_tool_call({ toolName: c.tool, params: c.params }, { sessionKey: c.room === 'owner' ? sessions.owner : `${sessions.guest}:${c.id}`, workspaceDir: ws });
+  assert.equal(r?.block === true ? 'block' : 'pass', c.expect, `${c.id}: ${c.tool} in the ${c.room} room`);
+  n++;
+}
+
 for (const c of cases.scripts) {
   const [script, ...args] = c.argv;
   const env = { ...process.env, ONBEHALF_CONFIG: '/nonexistent', ...(c.now ? { ONBEHALF_NOW: c.now } : {}) };
