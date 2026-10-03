@@ -143,6 +143,13 @@
       "room": "guest",
       "reply": "What's the best email for the invite? I'll post it here as a file you can tap too.",
       "expect": "pass"
+    },
+    {
+      "id": "live-sonnet5-default-length",
+      "source": "live run 2026-10-03, Sonnet 5",
+      "room": "owner",
+      "reply": "Did you mean a different time, or should I set this up with Juan for another day? Also, what length are we thinking (default 30 min)?",
+      "expect": "default"
     }
   ],
   "guest_messages": [

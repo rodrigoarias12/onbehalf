@@ -74,7 +74,7 @@ export const MONEY = /(?:\$\s?\d|\b\d+\s?k\b|\b(?:safe|valuation|cap table|term 
 // A preference offered as "the default if you don't care" is a choice made for the owner. Sam's own
 // assistant wrote exactly that about Google Meet (his error #7); the red-team run did it with
 // lengths ("30 minutes unless you want something else"). Ask plainly, save the answer once.
-export const DEFAULTS = /\b(?:is\s+the\s+default|(?:the\s+)?default\s+is\b|if\s+you\s+don['’]?t\s+care|unless\s+you\s+(?:say|want|tell me|prefer)\b|I['’]ll\s+assume\b|por\s+defecto|si\s+no\s+te\s+importa|a\s+menos\s+que\s+(?:digas|quieras)|por\s+padr[ãa]o|se\s+voc[êe]\s+n[ãa]o\s+se\s+importar)/i;
+export const DEFAULTS = /\b(?:is\s+the\s+default|(?:the\s+)?default\s+is\b|\(default\b|default\s+\d|if\s+you\s+don['’]?t\s+care|unless\s+you\s+(?:say|want|tell me|prefer)\b|I['’]ll\s+assume\b|por\s+defecto|si\s+no\s+te\s+importa|a\s+menos\s+que\s+(?:digas|quieras)|por\s+padr[ãa]o|se\s+voc[êe]\s+n[ãa]o\s+se\s+importar)/i;
 export const defaultInstruction = (phrase) => `You wrote "${phrase}": that picks a preference for the owner. Ask the question plainly with no default offered ("Video or phone? Meet or Zoom?"), save the answer once, and never ask it again.`;
 
 // "Sam vai enviar o convite": the owner signed up for a task nobody asked him for. The assistant
